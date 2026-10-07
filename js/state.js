@@ -14,13 +14,13 @@ const SYSTEM_TITLES = [
   { id: 'national_hunter', name: 'Cazador de Rango Nacional', description: 'Alcanza el Nivel 100 y conviértete en una fuerza insuperable.', minLevel: 100, unlocked: false }
 ];
 
-const DEFAULT_TARGETS = {
-  pushups: 100,
-  squats: 100,
-  situps: 100,
-  running: 10.0,
-  deepwork: 60
-};
+const DEFAULT_ACTIVITIES = [
+  { id: 'pushups', name: 'Flexiones de brazos', sub: 'Push-ups', target: 100, unit: 'reps', stat: 'str', category: 'Fuerza (STR)', incs: [1, 5, 10, 25] },
+  { id: 'squats', name: 'Sentadillas', sub: 'Squats', target: 100, unit: 'reps', stat: 'str', category: 'Piernas (STR)', incs: [1, 5, 10, 25] },
+  { id: 'situps', name: 'Abdominales', sub: 'Sit-ups', target: 100, unit: 'reps', stat: 'vit', category: 'Core (VIT)', incs: [1, 5, 10, 25] },
+  { id: 'running', name: 'Carrera o Caminata activa', sub: 'Cardio', target: 10.0, unit: 'km', stat: 'agi', category: 'Agilidad (AGI)', incs: [0.5, 1.0, 2.5, 5.0] },
+  { id: 'deepwork', name: 'Bloque de Foco / Estudio', sub: 'Mente', target: 60, unit: 'min', stat: 'int', category: 'Inteligencia (INT)', incs: [5, 15, 25, 30] }
+];
 
 const DEFAULT_LOOT_TABLE = [
   { id: 'rest_buff', name: 'Poción de Recuperación Completa', rarity: 'rare', icon: '🧪', desc: 'Permite un descanso extra o restaurar HP/MP al 100% al instante.' },
@@ -54,6 +54,11 @@ class SystemStateManager {
 
   getInitialState() {
     const today = this.getTodayDateString();
+    const tasksMap = {};
+    DEFAULT_ACTIVITIES.forEach(a => {
+      tasksMap[a.id] = { ...a, current: 0 };
+    });
+
     return {
       player: {
         name: 'Sung Jin-woo',
@@ -79,29 +84,23 @@ class SystemStateManager {
         date: today,
         status: 'IN_PROGRESS', // IN_PROGRESS | COMPLETED | FAILED
         completedAt: null,
-        tasks: {
-          pushups: { id: 'pushups', name: 'Flexiones de brazos', current: 0, target: DEFAULT_TARGETS.pushups, unit: 'reps', stat: 'str' },
-          squats: { id: 'squats', name: 'Sentadillas', current: 0, target: DEFAULT_TARGETS.squats, unit: 'reps', stat: 'str' },
-          situps: { id: 'situps', name: 'Abdominales', current: 0, target: DEFAULT_TARGETS.situps, unit: 'reps', stat: 'vit' },
-          running: { id: 'running', name: 'Carrera o Caminata activa', current: 0, target: DEFAULT_TARGETS.running, unit: 'km', stat: 'agi' },
-          deepwork: { id: 'deepwork', name: 'Bloque de Foco / Estudio', current: 0, target: DEFAULT_TARGETS.deepwork, unit: 'min', stat: 'int' }
-        }
+        tasks: tasksMap
       },
       penalty: {
         isActive: false,
         triggeredDate: null,
-        penaltyType: 'SURVIVAL_TIME', // SURVIVAL_TIME | REPS
-        targetSeconds: 1800, // 30 mins
+        penaltyType: 'SURVIVAL_TIME',
+        targetSeconds: 1800,
         elapsedSeconds: 0,
         isRunning: false,
         reason: 'Has fallado la misión diaria antes de medianoche.'
       },
       inventory: {
-        lootBoxes: 1, // Start with 1 gift box!
+        lootBoxes: 1,
         items: [],
         customRewards: [...DEFAULT_LOOT_TABLE]
       },
-      history: {}, // Keyed by YYYY-MM-DD
+      history: {},
       statsSummary: {
         totalDays: 0,
         completedDays: 0,
@@ -118,9 +117,14 @@ class SystemStateManager {
       settings: {
         soundEnabled: true,
         hapticEnabled: true,
-        customTargets: { ...DEFAULT_TARGETS },
+        customActivities: JSON.parse(JSON.stringify(DEFAULT_ACTIVITIES)),
         penaltyMinutes: 30,
-        theme: 'system-cyan'
+        theme: 'system-cyan',
+        notifications: {
+          enabled: true,
+          times: ['09:00', '15:00', '21:00'],
+          lastTriggeredDateHour: {}
+        }
       },
       meta: {
         createdDate: today,
@@ -130,9 +134,6 @@ class SystemStateManager {
     };
   }
 
-  /**
-   * Load stored state, validate, migrate, and perform date/midnight check
-   */
   init() {
     const saved = window.systemStorage.load();
     if (saved) {
@@ -151,7 +152,6 @@ class SystemStateManager {
 
   mergeWithDefaults(saved) {
     const base = this.getInitialState();
-    // Deep merge essential structures
     const merged = {
       ...base,
       ...saved,
@@ -164,11 +164,7 @@ class SystemStateManager {
         ...base.quest,
         ...(saved.quest || {}),
         tasks: {
-          pushups: { ...base.quest.tasks.pushups, ...(saved.quest?.tasks?.pushups || {}) },
-          squats: { ...base.quest.tasks.squats, ...(saved.quest?.tasks?.squats || {}) },
-          situps: { ...base.quest.tasks.situps, ...(saved.quest?.tasks?.situps || {}) },
-          running: { ...base.quest.tasks.running, ...(saved.quest?.tasks?.running || {}) },
-          deepwork: { ...base.quest.tasks.deepwork, ...(saved.quest?.tasks?.deepwork || {}) }
+          ...(saved.quest?.tasks || base.quest.tasks)
         }
       },
       penalty: { ...base.penalty, ...(saved.penalty || {}) },
@@ -178,9 +174,13 @@ class SystemStateManager {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
-        customTargets: { ...base.settings.customTargets, ...(saved.settings?.customTargets || {}) }
+        customActivities: saved.settings?.customActivities || base.settings.customActivities,
+        notifications: {
+          ...base.settings.notifications,
+          ...(saved.settings?.notifications || {})
+        }
       },
-      meta: { ...base.meta, ...(saved.meta || {}) }
+      meta: { ...base.meta, ...(saved.meta || {}), version: '1.0.0' }
     };
     return merged;
   }
@@ -189,23 +189,14 @@ class SystemStateManager {
     window.systemStorage.save(this.state);
   }
 
-  /**
-   * Progression formula: EXP_Requerida(Nivel) = Math.floor(100 * Math.pow(Nivel, 1.5))
-   */
   getRequiredExpForLevel(lvl = this.state.player.level) {
     return Math.max(100, Math.floor(100 * Math.pow(lvl, 1.5)));
   }
 
-  /**
-   * Quest EXP reward formula: around 60-80% of current level requirement
-   */
   getQuestExpReward(lvl = this.state.player.level) {
     return Math.floor(75 * Math.pow(lvl, 1.45));
   }
 
-  /**
-   * Hunter Rank mapping based on Level
-   */
   getHunterRank(lvl = this.state.player.level) {
     if (lvl >= 100) return { rank: 'NACIONAL', label: 'Cazador de Rango Nacional', color: '#FFD700', glow: 'gold' };
     if (lvl >= 90) return { rank: 'S', label: 'Cazador Rango S', color: '#B026FF', glow: 'purple' };
@@ -216,43 +207,31 @@ class SystemStateManager {
     return { rank: 'E', label: 'Cazador Rango E', color: '#A0AEC0', glow: 'gray' };
   }
 
-  /**
-   * Recalculate Max HP & MP based on VIT and INT
-   */
   recalculateMaxVitals() {
     const { vit, int } = this.state.player.stats;
     this.state.player.maxHp = 100 + vit * 10;
     this.state.player.maxMp = 50 + int * 10;
 
-    // Cap current values
     if (this.state.player.hp > this.state.player.maxHp) this.state.player.hp = this.state.player.maxHp;
     if (this.state.player.mp > this.state.player.maxMp) this.state.player.mp = this.state.player.maxMp;
   }
 
-  /**
-   * Check for midnight / day change
-   */
   checkDateTransition() {
     const today = this.getTodayDateString();
     const lastDate = this.state.quest.date;
 
     if (lastDate !== today) {
-      // It's a new day!
       const yesterdayWasCompleted = this.state.quest.status === 'COMPLETED';
 
-      // Save previous day in history if not already recorded
       if (!this.state.history[lastDate]) {
         this.recordHistoryEntry(lastDate, this.state.quest.status);
       }
 
       if (!yesterdayWasCompleted && !this.state.penalty.isActive) {
-        // Quest was incomplete! Trigger Penalty Quest
         this.triggerPenaltyZone(lastDate);
       } else if (yesterdayWasCompleted && !this.state.penalty.isActive) {
-        // Fresh new day
         this.resetDailyQuest(today);
       } else if (this.state.penalty.isActive) {
-        // Penalty remains active until cleared
         this.state.quest.date = today;
       }
       this.state.meta.lastActiveDate = today;
@@ -265,15 +244,15 @@ class SystemStateManager {
       date: dateStr,
       status: status,
       level: this.state.player.level,
-      pushups: q.tasks.pushups.current,
-      squats: q.tasks.squats.current,
-      situps: q.tasks.situps.current,
-      running: q.tasks.running.current,
-      deepwork: q.tasks.deepwork.current,
+      tasks: { ...q.tasks },
+      pushups: q.tasks.pushups?.current || 0,
+      squats: q.tasks.squats?.current || 0,
+      situps: q.tasks.situps?.current || 0,
+      running: q.tasks.running?.current || 0,
+      deepwork: q.tasks.deepwork?.current || 0,
       completedAt: q.completedAt
     };
 
-    // Update streak and summary
     if (status === 'COMPLETED') {
       this.state.statsSummary.completedDays++;
       this.state.statsSummary.currentStreak++;
@@ -285,11 +264,11 @@ class SystemStateManager {
       this.state.statsSummary.currentStreak = 0;
     }
     this.state.statsSummary.totalDays++;
-    this.state.statsSummary.totalPushups += q.tasks.pushups.current;
-    this.state.statsSummary.totalSquats += q.tasks.squats.current;
-    this.state.statsSummary.totalSitups += q.tasks.situps.current;
-    this.state.statsSummary.totalKm += q.tasks.running.current;
-    this.state.statsSummary.totalDeepworkMin += q.tasks.deepwork.current;
+    this.state.statsSummary.totalPushups += (q.tasks.pushups?.current || 0);
+    this.state.statsSummary.totalSquats += (q.tasks.squats?.current || 0);
+    this.state.statsSummary.totalSitups += (q.tasks.situps?.current || 0);
+    this.state.statsSummary.totalKm += (q.tasks.running?.current || 0);
+    this.state.statsSummary.totalDeepworkMin += (q.tasks.deepwork?.current || 0);
   }
 
   triggerPenaltyZone(dateStr) {
@@ -302,30 +281,85 @@ class SystemStateManager {
   }
 
   resetDailyQuest(today = this.getTodayDateString()) {
-    const targets = this.state.settings.customTargets || DEFAULT_TARGETS;
+    const activities = this.state.settings.customActivities || DEFAULT_ACTIVITIES;
+    const tasksMap = {};
+    activities.forEach(a => {
+      tasksMap[a.id] = { ...a, current: 0 };
+    });
+
     this.state.quest = {
       date: today,
       status: 'IN_PROGRESS',
       completedAt: null,
-      tasks: {
-        pushups: { id: 'pushups', name: 'Flexiones de brazos', current: 0, target: targets.pushups, unit: 'reps', stat: 'str' },
-        squats: { id: 'squats', name: 'Sentadillas', current: 0, target: targets.squats, unit: 'reps', stat: 'str' },
-        situps: { id: 'situps', name: 'Abdominales', current: 0, target: targets.situps, unit: 'reps', stat: 'vit' },
-        running: { id: 'running', name: 'Carrera o Caminata activa', current: 0, target: targets.running, unit: 'km', stat: 'agi' },
-        deepwork: { id: 'deepwork', name: 'Bloque de Foco / Estudio', current: 0, target: targets.deepwork, unit: 'min', stat: 'int' }
-      }
+      tasks: tasksMap
     };
   }
 
   /**
-   * Update task progress
+   * Add a new custom objective activity to the daily quest
    */
+  addNewActivity({ name, target, unit, category, stat, incs }) {
+    const id = 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const newAct = {
+      id,
+      name: name.trim(),
+      sub: category || 'General',
+      target: parseFloat(target) || 10,
+      unit: unit || 'reps',
+      stat: stat || 'str',
+      category: category || 'Entrenamiento',
+      incs: incs || [1, 5, 10, 25]
+    };
+
+    if (!this.state.settings.customActivities) {
+      this.state.settings.customActivities = JSON.parse(JSON.stringify(DEFAULT_ACTIVITIES));
+    }
+
+    this.state.settings.customActivities.push(newAct);
+
+    // Also add to active quest if in progress
+    if (this.state.quest.status === 'IN_PROGRESS') {
+      this.state.quest.tasks[id] = { ...newAct, current: 0 };
+    }
+
+    this.save();
+    return newAct;
+  }
+
+  /**
+   * Remove an activity from daily quest
+   */
+  removeActivity(activityId) {
+    if (!this.state.settings.customActivities) return;
+
+    this.state.settings.customActivities = this.state.settings.customActivities.filter(a => a.id !== activityId);
+    if (this.state.quest.tasks[activityId]) {
+      delete this.state.quest.tasks[activityId];
+    }
+
+    this.save();
+  }
+
+  updateActivityTarget(activityId, newTarget) {
+    const parsed = parseFloat(newTarget);
+    if (isNaN(parsed) || parsed <= 0) return;
+
+    const act = this.state.settings.customActivities?.find(a => a.id === activityId);
+    if (act) act.target = parsed;
+
+    if (this.state.quest.tasks[activityId]) {
+      this.state.quest.tasks[activityId].target = parsed;
+    }
+
+    this.save();
+  }
+
   updateTaskProgress(taskId, delta, isAbsolute = false) {
     const task = this.state.quest.tasks[taskId];
     if (!task) return;
 
     if (isAbsolute) {
-      task.current = Math.max(0, Math.min(task.target * 2, delta));
+      task.current = Math.max(0, Math.min(task.target * 3, delta));
     } else {
       task.current = Math.max(0, parseFloat((task.current + delta).toFixed(1)));
     }
@@ -333,22 +367,13 @@ class SystemStateManager {
     this.save();
   }
 
-  /**
-   * Check if all quest objectives are 100% completed
-   */
   isDailyQuestReadyToClaim() {
     const tasks = Object.values(this.state.quest.tasks);
+    if (tasks.length === 0) return false;
     if (this.state.quest.status === 'COMPLETED') return false;
     return tasks.every(t => t.current >= t.target);
   }
 
-  /**
-   * Claim Daily Quest Rewards:
-   * 1. EXP
-   * 2. 3 Stat Points
-   * 3. Full Status Recovery (HP/MP max, fatigue 0)
-   * 4. 1 Loot Box (Caja Misteriosa)
-   */
   claimDailyQuestReward() {
     if (!this.isDailyQuestReadyToClaim()) return null;
 
@@ -356,28 +381,20 @@ class SystemStateManager {
     this.state.quest.status = 'COMPLETED';
     this.state.quest.completedAt = new Date().toISOString();
 
-    // EXP Gain
     const expGained = this.getQuestExpReward();
     const levelUpResult = this.addExp(expGained);
 
-    // +3 Stat Points
     this.state.player.statPoints += 3;
 
-    // Full Status Recovery
     this.recalculateMaxVitals();
     this.state.player.hp = this.state.player.maxHp;
     this.state.player.mp = this.state.player.maxMp;
     this.state.player.fatigue = 0;
 
-    // +1 Loot Box
     this.state.inventory.lootBoxes = (this.state.inventory.lootBoxes || 0) + 1;
 
-    // Record in history & stats
     this.recordHistoryEntry(today, 'COMPLETED');
-
-    // Title unlocks check
     this.checkTitleUnlocks();
-
     this.save();
 
     return {
@@ -388,9 +405,6 @@ class SystemStateManager {
     };
   }
 
-  /**
-   * Add EXP and compute possible level-ups
-   */
   addExp(amount) {
     let currentExp = this.state.player.currentExp + amount;
     let oldLevel = this.state.player.level;
@@ -401,7 +415,6 @@ class SystemStateManager {
     while (currentExp >= reqExp) {
       currentExp -= reqExp;
       newLevel++;
-      // Award 3 to 5 stat points per level up (3 standard + 1 bonus every 5 levels)
       const points = newLevel % 5 === 0 ? 5 : 3;
       this.state.player.statPoints += points;
       totalStatPointsAwarded += points;
@@ -425,9 +438,6 @@ class SystemStateManager {
     };
   }
 
-  /**
-   * Allocate stat point
-   */
   allocateStat(statKey, amount = 1) {
     if (this.state.player.statPoints < amount) return false;
     if (!this.state.player.stats[statKey] && this.state.player.stats[statKey] !== 0) return false;
@@ -441,9 +451,6 @@ class SystemStateManager {
     return true;
   }
 
-  /**
-   * Check and unlock titles
-   */
   checkTitleUnlocks() {
     const p = this.state.player;
     const summary = this.state.statsSummary;
@@ -472,32 +479,22 @@ class SystemStateManager {
     return newlyUnlocked;
   }
 
-  /**
-   * Equip title
-   */
   equipTitle(titleName) {
     this.state.player.title = titleName;
     this.save();
   }
 
-  /**
-   * Clear Penalty Quest
-   */
   clearPenalty() {
     this.state.penalty.isActive = false;
     this.state.penalty.isRunning = false;
     this.state.penalty.elapsedSeconds = 0;
     this.state.statsSummary.penaltiesCleared = (this.state.statsSummary.penaltiesCleared || 0) + 1;
 
-    // Unblock today's daily quest!
     this.resetDailyQuest(this.getTodayDateString());
     this.checkTitleUnlocks();
     this.save();
   }
 
-  /**
-   * Open Loot Box
-   */
   openLootBox() {
     if ((this.state.inventory.lootBoxes || 0) <= 0) return null;
 
@@ -506,11 +503,9 @@ class SystemStateManager {
       ? this.state.inventory.customRewards
       : DEFAULT_LOOT_TABLE;
 
-    // Weighted random
     const rand = Math.random();
     let selected;
 
-    // Simple rarity logic
     if (rand < 0.05) {
       selected = pool.find(i => i.rarity === 'legendary') || pool[0];
     } else if (rand < 0.25) {
@@ -538,9 +533,6 @@ class SystemStateManager {
     return itemInstance;
   }
 
-  /**
-   * Use an item in inventory
-   */
   useItem(instanceId) {
     const item = this.state.inventory.items.find(i => i.instanceId === instanceId);
     if (!item || item.used) return false;
@@ -562,3 +554,4 @@ class SystemStateManager {
 
 window.systemState = new SystemStateManager();
 window.SYSTEM_TITLES = SYSTEM_TITLES;
+window.DEFAULT_ACTIVITIES = DEFAULT_ACTIVITIES;

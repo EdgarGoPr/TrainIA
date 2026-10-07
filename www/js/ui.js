@@ -483,19 +483,35 @@ class SystemUIController {
      SETTINGS SCREEN
      ========================================================================== */
   renderSettingsScreen() {
-    const targets = window.systemState.state.settings.customTargets || DEFAULT_TARGETS;
+    const container = document.getElementById('activities-config-container');
+    const activities = window.systemState.state.settings.customActivities || window.DEFAULT_ACTIVITIES;
 
-    const pushupsInp = document.getElementById('target-pushups-input');
-    const squatsInp = document.getElementById('target-squats-input');
-    const situpsInp = document.getElementById('target-situps-input');
-    const runningInp = document.getElementById('target-running-input');
-    const deepworkInp = document.getElementById('target-deepwork-input');
+    if (container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          ${activities.map(act => `
+            <div style="background: rgba(14, 21, 37, 0.6); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-family: var(--font-hud); font-size: 0.85rem; font-weight:700; color:#fff;">
+                  ${act.name}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  ${act.category || 'Entrenamiento'} | Unidad: ${act.unit}
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <input type="number" step="any" value="${act.target}" onchange="window.systemState.updateActivityTarget('${act.id}', this.value); window.questController.renderDailyQuest();" style="width: 70px; padding: 4px 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono); font-size: 0.85rem;">
+                <button class="icon-btn" style="width: 26px; height: 26px; font-size: 0.75rem; border-color: rgba(255,0,85,0.4); color: var(--penalty-red);" onclick="window.questController.confirmDeleteTask('${act.id}');" title="Eliminar actividad">🗑️</button>
+              </div>
+            </div>
+          `).join('')}
 
-    if (pushupsInp) pushupsInp.value = targets.pushups;
-    if (squatsInp) squatsInp.value = targets.squats;
-    if (situpsInp) situpsInp.value = targets.situps;
-    if (runningInp) runningInp.value = targets.running;
-    if (deepworkInp) deepworkInp.value = targets.deepwork;
+          <button id="add-settings-activity-btn" class="modal-btn" style="margin-top: 6px; background: rgba(0, 229, 255, 0.15); border-color: var(--color-primary); color: var(--color-primary-glow);">
+            + AGREGAR NUEVA ACTIVIDAD
+          </button>
+        </div>
+      `;
+    }
 
     if (window.systemNotifications) {
       window.systemNotifications.renderNotificationSettings();
@@ -503,32 +519,9 @@ class SystemUIController {
   }
 
   saveSettings() {
-    const pushups = parseInt(document.getElementById('target-pushups-input')?.value, 10) || 100;
-    const squats = parseInt(document.getElementById('target-squats-input')?.value, 10) || 100;
-    const situps = parseInt(document.getElementById('target-situps-input')?.value, 10) || 100;
-    const running = parseFloat(document.getElementById('target-running-input')?.value) || 10.0;
-    const deepwork = parseInt(document.getElementById('target-deepwork-input')?.value, 10) || 60;
-
-    window.systemState.state.settings.customTargets = {
-      pushups,
-      squats,
-      situps,
-      running,
-      deepwork
-    };
-
-    // If quest is in progress, update active target values
-    if (window.systemState.state.quest.status === 'IN_PROGRESS') {
-      window.systemState.state.quest.tasks.pushups.target = pushups;
-      window.systemState.state.quest.tasks.squats.target = squats;
-      window.systemState.state.quest.tasks.situps.target = situps;
-      window.systemState.state.quest.tasks.running.target = running;
-      window.systemState.state.quest.tasks.deepwork.target = deepwork;
-    }
-
     window.systemState.save();
     window.systemAudio.playClick();
-    this.showToast('[SISTEMA]: Parámetros de misión diaria actualizados.', 'success');
+    this.showToast('[SISTEMA]: Parámetros del Sistema actualizados.', 'success');
     window.questController.renderDailyQuest();
   }
 }

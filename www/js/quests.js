@@ -1,5 +1,5 @@
 /**
- * Solo Leveling System - Quests & Penalty Zone Logic
+ * Solo Leveling System - Quests & Dynamic Activities Logic
  */
 
 class QuestController {
@@ -14,7 +14,6 @@ class QuestController {
   }
 
   attachEventListeners() {
-    // Quick increment buttons on daily quest
     document.addEventListener('click', (e) => {
       const incBtn = e.target.closest('[data-action="inc-task"]');
       if (incBtn) {
@@ -36,6 +35,19 @@ class QuestController {
       if (editBtn) {
         const taskId = editBtn.dataset.taskId;
         this.promptDirectInput(taskId);
+        return;
+      }
+
+      const deleteBtn = e.target.closest('[data-action="delete-task"]');
+      if (deleteBtn) {
+        const taskId = deleteBtn.dataset.taskId;
+        this.confirmDeleteTask(taskId);
+        return;
+      }
+
+      const addActivityBtn = e.target.closest('#add-quest-activity-btn') || e.target.closest('#add-settings-activity-btn');
+      if (addActivityBtn) {
+        this.showAddActivityModal();
         return;
       }
 
@@ -90,6 +102,113 @@ class QuestController {
     }
   }
 
+  confirmDeleteTask(taskId) {
+    const task = window.systemState.state.quest.tasks[taskId];
+    if (!task) return;
+
+    const confirmation = confirm(`¿Deseas eliminar "${task.name}" de tus objetivos del Sistema?`);
+    if (confirmation) {
+      window.systemAudio.playClick();
+      window.systemState.removeActivity(taskId);
+      window.systemUI.showToast(`[SISTEMA]: Actividad "${task.name}" eliminada de los objetivos.`, 'normal');
+      this.renderDailyQuest();
+      window.systemUI.renderSettingsScreen();
+    }
+  }
+
+  showAddActivityModal() {
+    const modal = document.getElementById('generic-system-modal');
+    const titleEl = document.getElementById('generic-modal-title');
+    const bodyEl = document.getElementById('generic-modal-body');
+    if (!modal || !bodyEl) return;
+
+    window.systemAudio.playClick();
+    if (titleEl) titleEl.textContent = '[ REGISTRAR NUEVA ACTIVIDAD EN EL SISTEMA ]';
+
+    bodyEl.innerHTML = `
+      <form id="new-activity-form" onsubmit="event.preventDefault(); window.questController.saveNewActivity();" style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Nombre del Ejercicio / Actividad:</label>
+          <input type="text" id="act-name-input" required placeholder="ej: Dominadas (Pull-ups), Saltar cuerda, Meditación" style="width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-body); font-size: 0.9rem; margin-top: 4px;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Meta Objetivo:</label>
+            <input type="number" step="any" id="act-target-input" required value="50" style="width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-mono); font-size: 0.9rem; margin-top: 4px;">
+          </div>
+          <div>
+            <label style="font-size: 0.8rem; color: var(--text-muted);">Unidad:</label>
+            <select id="act-unit-select" style="width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-mono); font-size: 0.88rem; margin-top: 4px;">
+              <option value="reps">reps (repeticiones)</option>
+              <option value="km">km (kilómetros)</option>
+              <option value="min">min (minutos)</option>
+              <option value="series">series</option>
+              <option value="litros">litros</option>
+              <option value="páginas">páginas</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 0.8rem; color: var(--text-muted);">Atributo Vinculado:</label>
+          <select id="act-stat-select" style="width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-hud); font-size: 0.85rem; margin-top: 4px;">
+            <option value="str">⚔️ FUERZA (STR)</option>
+            <option value="agi">⚡ AGILIDAD (AGI)</option>
+            <option value="vit">🛡️ VITALIDAD (VIT)</option>
+            <option value="int">🧠 INTELIGENCIA / FOCO (INT)</option>
+            <option value="per">👁️ PERCEPCIÓN (PER)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="claim-reward-btn" style="margin-top: 10px; padding: 12px; font-size: 0.9rem;">
+          ⚡ INSCRIBIR ACTIVIDAD EN EL SISTEMA
+        </button>
+      </form>
+    `;
+
+    modal.classList.add('active');
+  }
+
+  saveNewActivity() {
+    const name = document.getElementById('act-name-input')?.value;
+    const target = parseFloat(document.getElementById('act-target-input')?.value);
+    const unit = document.getElementById('act-unit-select')?.value || 'reps';
+    const stat = document.getElementById('act-stat-select')?.value || 'str';
+
+    if (!name || isNaN(target) || target <= 0) return;
+
+    const statLabels = {
+      str: 'Fuerza (STR)',
+      agi: 'Agilidad (AGI)',
+      vit: 'Vitalidad (VIT)',
+      int: 'Inteligencia (INT)',
+      per: 'Percepción (PER)'
+    };
+
+    let incs = [1, 5, 10, 25];
+    if (unit === 'km') incs = [0.5, 1.0, 2.5, 5.0];
+    if (unit === 'min') incs = [5, 15, 25, 30];
+
+    window.systemState.addNewActivity({
+      name: name.trim(),
+      target: target,
+      unit: unit,
+      stat: stat,
+      category: statLabels[stat] || 'Entrenamiento',
+      incs: incs
+    });
+
+    window.systemAudio.playQuestComplete();
+    window.systemUI.showToast(`[SISTEMA]: Nueva actividad "${name.trim()}" agregada a la misión.`, 'success');
+
+    const modal = document.getElementById('generic-system-modal');
+    if (modal) modal.classList.remove('active');
+
+    this.renderDailyQuest();
+    window.systemUI.renderSettingsScreen();
+  }
+
   renderDailyQuest() {
     const container = document.getElementById('daily-quest-tasks-container');
     const bannerContainer = document.getElementById('daily-quest-banner-container');
@@ -104,12 +223,14 @@ class QuestController {
     let totalTargetUnits = 0;
     let totalCurrentUnits = 0;
 
-    Object.values(quest.tasks).forEach(t => {
+    const taskList = Object.values(quest.tasks || {});
+
+    taskList.forEach(t => {
       totalTargetUnits += t.target;
       totalCurrentUnits += Math.min(t.current, t.target);
     });
 
-    const overallPct = Math.min(100, Math.round((totalCurrentUnits / (totalTargetUnits || 1)) * 100));
+    const overallPct = taskList.length > 0 ? Math.min(100, Math.round((totalCurrentUnits / (totalTargetUnits || 1)) * 100)) : 0;
 
     if (bannerContainer) {
       bannerContainer.innerHTML = `
@@ -133,67 +254,86 @@ class QuestController {
     }
 
     // Render Tasks Cards
-    let html = '';
-    const taskList = [
-      { id: 'pushups', name: '100 Flexiones de brazos', sub: 'Push-ups', category: 'Fuerza (STR)', incs: [1, 5, 10, 25] },
-      { id: 'squats', name: '100 Sentadillas', sub: 'Squats', category: 'Piernas (STR/AGI)', incs: [1, 5, 10, 25] },
-      { id: 'situps', name: '100 Abdominales', sub: 'Sit-ups / Core', category: 'Vitalidad (VIT)', incs: [1, 5, 10, 25] },
-      { id: 'running', name: '10.0 km Carrera o Caminata activa', sub: 'Cardio', category: 'Agilidad (AGI)', incs: [0.5, 1.0, 2.5, 5.0] },
-      { id: 'deepwork', name: '60 min Trabajo Profundo / Lectura', sub: 'Mente', category: 'Inteligencia (INT)', incs: [5, 15, 25, 30] }
-    ];
-
-    taskList.forEach(meta => {
-      const task = quest.tasks[meta.id];
-      if (!task) return;
-
-      const isDone = task.current >= task.target;
-      const pct = Math.min(100, Math.round((task.current / task.target) * 100));
-
-      html += `
-        <div class="task-card ${isDone ? 'task-complete' : ''}">
-          <div class="task-card-header">
-            <div class="task-title-group">
-              <div class="task-checkbox">${isDone ? '✓' : ''}</div>
-              <div>
-                <div class="task-name">${task.name}</div>
-                <span class="task-category-tag">${meta.category}</span>
-              </div>
-            </div>
-            <button class="direct-input-btn" data-action="edit-task" data-task-id="${meta.id}" title="Ingresar valor">
-              ✏️ Editar
-            </button>
-          </div>
-
-          <div class="task-progress-nums">
-            <span>Progreso: <span class="task-current-val">${task.current}</span> <small>${task.unit}</small></span>
-            <span class="task-target-val">Objetivo: ${task.target} ${task.unit} (${pct}%)</span>
-          </div>
-
-          <div class="bar-track" style="margin-bottom: 8px;">
-            <div class="bar-fill ${isDone ? 'hp-fill' : 'mp-fill'}" style="width: ${pct}%;"></div>
-          </div>
-
-          ${!isCompleted ? `
-            <div class="task-btn-grid">
-              ${meta.incs.map(amt => `
-                <button class="quick-inc-btn" data-action="inc-task" data-task-id="${meta.id}" data-amount="${amt}">
-                  +${amt}
-                </button>
-              `).join('')}
-              <button class="quick-dec-btn" data-action="dec-task" data-task-id="${meta.id}" data-amount="${meta.incs[0]}" title="Restar">
-                -
-              </button>
-            </div>
-          ` : `
-            <div style="font-size:0.75rem; color: var(--hp-color); font-family: var(--font-mono); margin-top:6px;">
-              [OBJETIVO SELLADO POR EL SISTEMA]
-            </div>
-          `}
+    if (taskList.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 24px; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-cyan);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">⚔️</div>
+          <div style="font-family: var(--font-hud); color: #fff; margin-bottom: 6px;">Sin actividades registradas</div>
+          <p style="font-size: 0.8rem; margin-bottom: 12px;">Agrega nuevos ejercicios y hábitos a tu misión diaria.</p>
+          <button id="add-quest-activity-btn" class="modal-btn" style="margin: 0 auto; max-width: 220px;">
+            + AGREGAR ACTIVIDAD
+          </button>
         </div>
       `;
-    });
+    } else {
+      let html = '';
+      taskList.forEach(task => {
+        const isDone = task.current >= task.target;
+        const pct = Math.min(100, Math.round((task.current / task.target) * 100));
+        const incs = task.incs || [1, 5, 10, 25];
 
-    container.innerHTML = html;
+        html += `
+          <div class="task-card ${isDone ? 'task-complete' : ''}">
+            <div class="task-card-header">
+              <div class="task-title-group">
+                <div class="task-checkbox">${isDone ? '✓' : ''}</div>
+                <div>
+                  <div class="task-name">${task.name}</div>
+                  <span class="task-category-tag">${task.category || 'Entrenamiento'}</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button class="direct-input-btn" data-action="edit-task" data-task-id="${task.id}" title="Ingresar valor">
+                  ✏️
+                </button>
+                ${!isCompleted ? `
+                  <button class="direct-input-btn" data-action="delete-task" data-task-id="${task.id}" style="color: var(--penalty-red); border-color: rgba(255,0,85,0.3);" title="Quitar actividad">
+                    🗑️
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+
+            <div class="task-progress-nums">
+              <span>Progreso: <span class="task-current-val">${task.current}</span> <small>${task.unit}</small></span>
+              <span class="task-target-val">Objetivo: ${task.target} ${task.unit} (${pct}%)</span>
+            </div>
+
+            <div class="bar-track" style="margin-bottom: 8px;">
+              <div class="bar-fill ${isDone ? 'hp-fill' : 'mp-fill'}" style="width: ${pct}%;"></div>
+            </div>
+
+            ${!isCompleted ? `
+              <div class="task-btn-grid">
+                ${incs.map(amt => `
+                  <button class="quick-inc-btn" data-action="inc-task" data-task-id="${task.id}" data-amount="${amt}">
+                    +${amt}
+                  </button>
+                `).join('')}
+                <button class="quick-dec-btn" data-action="dec-task" data-task-id="${task.id}" data-amount="${incs[0]}" title="Restar">
+                  -
+                </button>
+              </div>
+            ` : `
+              <div style="font-size:0.75rem; color: var(--hp-color); font-family: var(--font-mono); margin-top:6px;">
+                [OBJETIVO SELLADO POR EL SISTEMA]
+              </div>
+            `}
+          </div>
+        `;
+      });
+
+      // Add "Nueva Actividad" button at bottom of list
+      if (!isCompleted) {
+        html += `
+          <button id="add-quest-activity-btn" class="modal-btn" style="width: 100%; margin-top: 6px; margin-bottom: 12px; background: rgba(0, 229, 255, 0.08); border: 1px dashed var(--border-cyan); color: var(--color-primary-glow); padding: 12px; font-family: var(--font-hud); font-size: 0.85rem;">
+            + AGREGAR NUEVA ACTIVIDAD / OBJETIVO
+          </button>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
 
     // Render Claim Button
     if (claimContainer) {
@@ -217,11 +357,9 @@ class QuestController {
     const result = window.systemState.claimDailyQuestReward();
     if (!result) return;
 
-    // Trigger full recovery wash effect
     window.systemAudio.playStatusRecovery();
     window.systemUI.triggerStatusRecoveryEffect();
 
-    // If level up occurred
     if (result.levelUpResult && result.levelUpResult.didLevelUp) {
       setTimeout(() => {
         window.systemAudio.playLevelUp();
@@ -231,7 +369,6 @@ class QuestController {
       window.systemAudio.playQuestComplete();
     }
 
-    // Show Reward Popup
     window.systemUI.showRewardModal({
       expGained: result.expGained,
       statPoints: result.statPointsGained,
@@ -259,7 +396,6 @@ class QuestController {
       return;
     }
 
-    // Activate crimson penalty theme
     penaltyCard.style.display = 'block';
     document.body.classList.add('theme-penalty');
 

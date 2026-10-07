@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Sychronizer)
-  const CURRENT_VERSION = '1.2.0';
+  const CURRENT_VERSION = '1.0.0';
   const updateAppBtn = document.getElementById('update-system-app-btn');
   if (updateAppBtn) {
     updateAppBtn.addEventListener('click', async () => {

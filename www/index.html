@@ -351,43 +351,13 @@
 
         <div class="system-card">
           <div class="system-card-header">
-            <h3 class="card-title">⚙️ CONFIGURACIÓN DE OBJETIVOS</h3>
-            <span class="card-badge">PARÁMETROS</span>
+            <h3 class="card-title">⚙️ GESTIÓN DE OBJETIVOS Y ACTIVIDADES</h3>
+            <span class="card-badge">PERSONALIZABLE</span>
           </div>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
-            Ajusta la dificultad de tus objetivos diarios según tu nivel físico actual:
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Agrega, edita metas o elimina ejercicios y hábitos de tu Misión Diaria:
           </p>
-
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Flexiones (reps):</label>
-              <input type="number" id="target-pushups-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Sentadillas (reps):</label>
-              <input type="number" id="target-squats-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Abdominales (reps):</label>
-              <input type="number" id="target-situps-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Carrera activa (km):</label>
-              <input type="number" step="0.5" id="target-running-input" value="10.0" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Trabajo Foco / INT (min):</label>
-              <input type="number" id="target-deepwork-input" value="60" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
-            </div>
-
-            <button id="save-settings-btn" class="modal-btn" style="margin-top: 8px;">
-              💾 GUARDAR CAMBIOS
-            </button>
-          </div>
+          <div id="activities-config-container"></div>
         </div>
 
         <!-- Scheduled Notifications Card -->
@@ -406,8 +376,18 @@
         <div class="system-card" style="border-color: var(--color-primary); background: rgba(0, 229, 255, 0.05);">
           <div class="system-card-header">
             <h3 class="card-title">🔄 ACTUALIZACIÓN DEL SISTEMA</h3>
-            <span class="card-badge">V1.2.0</span>
+            <span class="card-badge">V1.0.0</span>
           </div>
+          <p style="font-size: 0.82rem; color: #fff; margin-bottom: 12px;">
+            Sincroniza y descarga la última versión del software, nuevas recompensas y actualizaciones del HUD:
+          </p>
+          <button id="update-system-app-btn" class="claim-reward-btn" style="padding: 12px; font-size: 0.9rem; background: linear-gradient(135deg, #00b4d8, #00e5ff); color: #05070d; box-shadow: var(--glow-cyan); margin-bottom: 8px;">
+            🔄 ACTUALIZAR SISTEMA A LA ÚLTIMA VERSIÓN
+          </button>
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center;">
+            [Limpia la caché y actualiza el firmware a la última versión disponible]
+          </div>
+        </div>
           <p style="font-size: 0.82rem; color: #fff; margin-bottom: 12px;">
             Sincroniza y descarga la última versión del software, nuevas recompensas y actualizaciones del HUD:
           </p>
