@@ -179,8 +179,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initial welcome chime
-  setTimeout(() => {
+  // Initial welcome chime & notification readiness check
+  setTimeout(async () => {
     window.systemUI.showToast('[SISTEMA]: Has despertado como Cazador. El Sistema está en línea.', 'normal');
+    if (window.systemNotifications) {
+      const granted = await window.systemNotifications.checkPermissionStatus();
+      if (!granted && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+        window.systemNotifications.requestPermission();
+      }
+    }
   }, 800);
 });

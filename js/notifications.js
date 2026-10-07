@@ -15,16 +15,27 @@ class SystemNotificationManager {
     this.ensureDefaultSettings();
     this.resolvePlugin();
     await this.setupNotificationChannel();
-    this.checkPermissionStatus();
-    this.syncNativeScheduledAlarms();
+    await this.checkPermissionStatus();
+    await this.syncNativeScheduledAlarms();
     this.startFallbackScheduleLoop();
     this.attachEventListeners();
   }
 
   resolvePlugin() {
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
-      this.localNotificationsPlugin = window.Capacitor.Plugins.LocalNotifications;
+    if (this.localNotificationsPlugin) return this.localNotificationsPlugin;
+
+    if (window.Capacitor) {
+      if (window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+        this.localNotificationsPlugin = window.Capacitor.Plugins.LocalNotifications;
+      } else if (typeof window.Capacitor.registerPlugin === 'function') {
+        try {
+          this.localNotificationsPlugin = window.Capacitor.registerPlugin('LocalNotifications');
+        } catch (e) {
+          console.warn('registerPlugin notice:', e);
+        }
+      }
     }
+    return this.localNotificationsPlugin;
   }
 
   ensureDefaultSettings() {
@@ -39,14 +50,14 @@ class SystemNotificationManager {
   }
 
   async setupNotificationChannel() {
-    this.resolvePlugin();
-    if (this.localNotificationsPlugin) {
+    const plugin = this.resolvePlugin();
+    if (plugin && typeof plugin.createChannel === 'function') {
       try {
-        await this.localNotificationsPlugin.createChannel({
+        await plugin.createChannel({
           id: 'solo_system_channel',
           name: 'Misiones del Sistema',
           description: 'Notificaciones oficiales del Sistema de Solo Leveling',
-          importance: 5, // High importance: shows banner and sounds alarm
+          importance: 5, // High / Max priority: heads-up banner, sound, vibration
           visibility: 1, // Visible on lock screen
           vibration: true,
           lights: true,
@@ -59,54 +70,62 @@ class SystemNotificationManager {
   }
 
   async checkPermissionStatus() {
-    this.resolvePlugin();
-    if (this.localNotificationsPlugin) {
+    const plugin = this.resolvePlugin();
+    if (plugin && typeof plugin.checkPermissions === 'function') {
       try {
-        const status = await this.localNotificationsPlugin.checkPermissions();
-        this.permissionGranted = status.display === 'granted';
-        return;
-      } catch (e) {}
-    }
-
-    if ('Notification' in window) {
-      this.permissionGranted = Notification.permission === 'granted';
-    }
-  }
-
-  async requestPermission() {
-    this.resolvePlugin();
-
-    // Native Android Permissions
-    if (this.localNotificationsPlugin) {
-      try {
-        const result = await this.localNotificationsPlugin.requestPermissions();
-        this.permissionGranted = result.display === 'granted';
-        if (this.permissionGranted) {
-          window.systemAudio.playNotification();
-          await this.syncNativeScheduledAlarms();
-          await this.sendInstantSystemNotification(
-            '◈ [SISTEMA]: PERMISO CONCEDIDO ◈',
-            'Las advertencias de misiones del Sistema aparecerán directamente en la barra de estado de tu celular.'
-          );
-        }
+        const status = await plugin.checkPermissions();
+        this.permissionGranted = (status.display === 'granted');
         return this.permissionGranted;
       } catch (e) {
-        console.error('Native permission error:', e);
+        console.warn('Check native permission error:', e);
       }
     }
 
-    // Web Browser fallback
+    if ('Notification' in window) {
+      this.permissionGranted = (Notification.permission === 'granted');
+      return this.permissionGranted;
+    }
+
+    return false;
+  }
+
+  async requestPermission() {
+    const plugin = this.resolvePlugin();
+
+    // 1. Native Android Permissions
+    if (plugin && typeof plugin.requestPermissions === 'function') {
+      try {
+        const result = await plugin.requestPermissions();
+        this.permissionGranted = (result.display === 'granted');
+        if (this.permissionGranted) {
+          window.systemAudio.playNotification();
+          await this.setupNotificationChannel();
+          await this.syncNativeScheduledAlarms();
+          await this.sendInstantSystemNotification(
+            '◈ [SISTEMA: PERMISOS ACTIVADOS] ◈',
+            'Las alertas de la Misión Diaria ahora aparecerán directamente en la barra de estado de tu celular.'
+          );
+        }
+        this.renderNotificationSettings();
+        return this.permissionGranted;
+      } catch (e) {
+        console.error('Native permission request error:', e);
+      }
+    }
+
+    // 2. Web Browser fallback
     if ('Notification' in window) {
       try {
         const permission = await Notification.requestPermission();
-        this.permissionGranted = permission === 'granted';
+        this.permissionGranted = (permission === 'granted');
         if (this.permissionGranted) {
           window.systemAudio.playNotification();
           this.sendInstantSystemNotification(
-            '◈ [SISTEMA]: PERMISO CONCEDIDO ◈',
-            'Las advertencias de misiones del Sistema aparecerán en tu dispositivo.'
+            '◈ [SISTEMA: PERMISOS ACTIVADOS] ◈',
+            'Las alertas del Sistema aparecerán en tu dispositivo.'
           );
         }
+        this.renderNotificationSettings();
         return this.permissionGranted;
       } catch (e) {
         console.error('Web notification permission error:', e);
@@ -126,20 +145,22 @@ class SystemNotificationManager {
     if (q.status === 'COMPLETED') {
       return {
         title: '◈ [SISTEMA: MISIÓN DIARIA CUMPLIDA] ◈',
-        body: `Cazador ${p.name}, has completado todas las tareas del día. Estado recuperado.`
+        body: `Cazador ${p.name}, has completado todas las tareas del día. Estado corporal y recompensas disponibles.`
       };
     }
 
     if (window.systemState.state.penalty?.isActive) {
       return {
         title: '⚠️ [ALERTA CRÍTICA: ZONA DE CASTIGO] ⚠️',
-        body: `Cazador ${p.name}, estás en la Zona de Castigo. Sobrevive a la penalización antes de que se agote el tiempo.`
+        body: `Cazador ${p.name}, estás en la Zona de Castigo. Sobrevive a la penalización antes de que expire el tiempo.`
       };
     }
 
-    // Dynamic tasks status breakdown
+    // Dynamic tasks status breakdown (only active tasks)
     const remainingLines = [];
-    Object.values(q.tasks).forEach(t => {
+    const taskList = Object.values(q.tasks || {}).filter(t => t.active !== false);
+
+    taskList.forEach(t => {
       const isDone = t.current >= t.target;
       if (isDone) {
         remainingLines.push(`• ${t.name}: ${t.current}/${t.target} ${t.unit} (✓ HECHO)`);
@@ -151,8 +172,8 @@ class SystemNotificationManager {
 
     const title = '⚔️ [NOTIFICACIÓN DEL SISTEMA: MISIÓN DIARIA] ⚔️';
     const body = `Cazador ${p.name}, objetivos pendientes antes de medianoche:\n` +
-      remainingLines.join('\n') +
-      `\n⚠️ Penalización activa a las 23:59:59 si no se completa.`;
+      (remainingLines.length > 0 ? remainingLines.join('\n') : '• Sin tareas pendientes') +
+      `\n⚠️ Penalización a las 23:59:59 si no se completa.`;
 
     return { title, body };
   }
@@ -167,25 +188,27 @@ class SystemNotificationManager {
 
     window.systemAudio.playNotification();
 
-    this.resolvePlugin();
+    const plugin = this.resolvePlugin();
 
-    // 1. Native Android Local Notification (Shows in Android Status Bar / Notification Center)
-    if (this.localNotificationsPlugin) {
+    // 1. Native Android Local Notification (Shows in Android Status Bar & Notification Center)
+    if (plugin && typeof plugin.schedule === 'function') {
       try {
-        await this.localNotificationsPlugin.schedule({
+        await this.setupNotificationChannel();
+        await plugin.schedule({
           notifications: [
             {
-              id: Math.floor(Math.random() * 900000) + 100000,
+              id: Math.floor(Math.random() * 800000) + 100000,
               title: payload.title,
               body: payload.body,
               schedule: { at: new Date(Date.now() + 200), allowWhileIdle: true },
               channelId: 'solo_system_channel',
-              smallIcon: 'ic_launcher'
+              smallIcon: 'ic_launcher',
+              largeIcon: 'ic_launcher'
             }
           ]
         });
       } catch (e) {
-        console.warn('LocalNotifications schedule error:', e);
+        console.warn('Native LocalNotifications schedule error:', e);
       }
     }
 
@@ -219,21 +242,24 @@ class SystemNotificationManager {
    * Schedules Native Android Alarms for all configured times
    */
   async syncNativeScheduledAlarms() {
-    this.resolvePlugin();
-    if (!this.localNotificationsPlugin) return;
+    const plugin = this.resolvePlugin();
+    if (!plugin || typeof plugin.schedule !== 'function') return;
 
     const config = window.systemState.state.settings.notifications;
     if (!config) return;
 
     try {
       // Cancel previous scheduled alarms
-      const pending = await this.localNotificationsPlugin.getPending();
-      if (pending && pending.notifications.length > 0) {
-        await this.localNotificationsPlugin.cancel(pending);
+      if (typeof plugin.getPending === 'function' && typeof plugin.cancel === 'function') {
+        const pending = await plugin.getPending();
+        if (pending && pending.notifications && pending.notifications.length > 0) {
+          await plugin.cancel(pending);
+        }
       }
 
       if (!config.enabled || !config.times || config.times.length === 0) return;
 
+      await this.setupNotificationChannel();
       const payload = this.generateSoloLevelingPayload();
       const notificationsToSchedule = [];
 
@@ -241,16 +267,21 @@ class SystemNotificationManager {
         const [hour, minute] = timeStr.split(':').map(Number);
         if (isNaN(hour) || isNaN(minute)) return;
 
+        const now = new Date();
+        const schedTime = new Date();
+        schedTime.setHours(hour, minute, 0, 0);
+        if (schedTime.getTime() <= now.getTime()) {
+          schedTime.setDate(schedTime.getDate() + 1);
+        }
+
         notificationsToSchedule.push({
           id: 2000 + index,
           title: payload.title,
           body: payload.body,
           schedule: {
-            on: {
-              hour: hour,
-              minute: minute
-            },
+            at: schedTime,
             repeats: true,
+            every: 'day',
             allowWhileIdle: true // Wake device up from sleep / doze mode!
           },
           channelId: 'solo_system_channel',
@@ -259,7 +290,7 @@ class SystemNotificationManager {
       });
 
       if (notificationsToSchedule.length > 0) {
-        await this.localNotificationsPlugin.schedule({
+        await plugin.schedule({
           notifications: notificationsToSchedule
         });
       }
@@ -331,10 +362,28 @@ class SystemNotificationManager {
     if (!container) return;
 
     const config = window.systemState.state.settings.notifications || { enabled: true, times: ['09:00', '15:00', '21:00'] };
+    const isGranted = this.permissionGranted;
 
     container.innerHTML = `
+      <!-- Notification Permission Status Badge -->
+      <div style="background: ${isGranted ? 'rgba(0, 255, 136, 0.1)' : 'rgba(255, 170, 0, 0.12)'}; border: 1px solid ${isGranted ? '#00ff88' : '#ffaa00'}; border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-family: var(--font-hud); font-size: 0.82rem; color: #fff;">
+            PERMISO DEL SISTEMA OPERATIVO:
+          </div>
+          <div style="font-size: 0.72rem; color: ${isGranted ? '#00ff88' : '#ffaa00'}; margin-top: 2px;">
+            ${isGranted ? '● PERMISO CONCEDIDO (Alertas en barra de estado activas)' : '⚠️ PERMISO PENDIENTE (Toca el botón dorado para activar)'}
+          </div>
+        </div>
+        ${!isGranted ? `
+          <button id="request-notif-perm-btn" class="modal-btn" style="padding: 6px 12px; font-size: 0.75rem; background: rgba(255, 215, 0, 0.2); border-color: var(--color-gold); color: var(--color-gold); white-space: nowrap;">
+            🛡️ ACTIVAR
+          </button>
+        ` : ''}
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-        <label style="font-family: var(--font-hud); font-size: 0.9rem; color: #fff;">
+        <label style="font-family: var(--font-hud); font-size: 0.88rem; color: #fff; cursor: pointer;">
           Activar Alertas Nativas en Celular:
         </label>
         <input type="checkbox" id="toggle-notif-switch" ${config.enabled ? 'checked' : ''} style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--color-primary);">
@@ -342,7 +391,7 @@ class SystemNotificationManager {
 
       <div style="margin-bottom: 14px;">
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-          Horarios de alerta programados (sonarán en la barra de tu celular):
+          Horarios de alerta programados (sonarán en la barra superior de tu teléfono):
         </div>
         <div id="notif-times-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
           ${config.times.map(t => `
@@ -361,12 +410,9 @@ class SystemNotificationManager {
         </div>
       </div>
 
-      <div style="display: flex; gap: 8px; margin-top: 14px; border-top: 1px solid rgba(0,229,255,0.15); padding-top: 12px;">
-        <button id="test-notif-btn" class="modal-btn" style="background: rgba(0, 229, 255, 0.18); border-color: var(--color-primary); color: var(--color-primary-glow);">
-          📲 ENVIAR ALERTA A MI CELULAR
-        </button>
-        <button id="request-notif-perm-btn" class="modal-btn" style="background: rgba(255, 215, 0, 0.15); border-color: var(--color-gold); color: var(--color-gold);">
-          🛡️ ACTIVAR PERMISOS ANDROID
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px; border-top: 1px solid rgba(0,229,255,0.15); padding-top: 12px;">
+        <button id="test-notif-btn" class="modal-btn" style="background: rgba(0, 229, 255, 0.2); border-color: var(--color-primary); color: var(--color-primary-glow); padding: 12px; font-size: 0.88rem;">
+          📲 PROBAR ALERTA EN MI CELULAR AHORA
         </button>
       </div>
     `;
@@ -387,6 +433,9 @@ class SystemNotificationManager {
       const testBtn = e.target.closest('#test-notif-btn');
       if (testBtn) {
         window.systemAudio.playClick();
+        if (!this.permissionGranted) {
+          await this.requestPermission();
+        }
         await this.sendInstantSystemNotification();
         return;
       }

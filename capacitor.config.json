@@ -2,5 +2,12 @@
   "appId": "com.trainia.system",
   "appName": "TrainIA",
   "webDir": "www",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_launcher",
+      "iconColor": "#00E5FF",
+      "sound": "beep.wav"
+    }
+  }
 }
