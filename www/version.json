@@ -1,16 +1,15 @@
 {
-  "version": "1.1.5",
-  "versionCode": 6,
+  "version": "1.1.6",
+  "versionCode": 7,
   "releaseDate": "2026-10-07",
-  "apkName": "TrainIA-v1.1.5.apk",
-  "downloadUrl": "https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA-v1.1.5.apk",
+  "apkName": "TrainIA-v1.1.6.apk",
+  "downloadUrl": "https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/TrainIA-v1.1.6.apk",
   "webUrl": "https://edgargopr.github.io/TrainIA/",
   "changelog": [
-    "Versión v1.1.5 (SemVer Patch Release):",
-    "El archivo instalador APK ahora incluye siempre la versión explícita en su nombre (TrainIA-v1.1.5.apk)",
-    "Automatización del pipeline de compilación para generar y versionar el APK dinámicamente",
-    "Integración de DownloadListener nativo en MainActivity para descargas directas en Android",
-    "Puente nativo Java de notificaciones (LocalNotificationsPlugin) en MainActivity",
-    "Canal de alta prioridad 'solo_system_channel' con vibración y visibilidad en pantalla bloqueada"
+    "Versión v1.1.6 (SemVer Patch Release):",
+    "Corrección de descargas duplicadas mediante debounce en Java (MainActivity) y bloqueo de redirecciones en WebView",
+    "Optimización de URL directa y controlador con protección contra clics simultáneos",
+    "El archivo instalador APK mantiene el versionado explícito en su nombre (TrainIA-v1.1.6.apk)",
+    "Integración nativa del sistema de notificaciones y permisos en Android"
   ]
 }

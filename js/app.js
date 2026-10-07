@@ -86,37 +86,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Synchronizer)
-  const CURRENT_VERSION = '1.1.5';
+  const CURRENT_VERSION = '1.1.6';
+  let isDownloadInProgress = false;
 
   window.downloadAppUpdate = function(url, ver) {
+    if (isDownloadInProgress) return;
+    isDownloadInProgress = true;
+    setTimeout(() => { isDownloadInProgress = false; }, 4000);
+
     const versionStr = ver || CURRENT_VERSION;
     const apkFileName = `TrainIA-v${versionStr}.apk`;
-    if (!url) url = `https://github.com/EdgarGoPr/TrainIA/raw/main/${apkFileName}`;
+    if (!url) url = `https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/${apkFileName}`;
     
     window.systemAudio.playQuestComplete();
     window.systemUI.showToast(`[SISTEMA]: Iniciando descarga de ${apkFileName}...`, 'quest');
 
     try {
-      // 1. If running under native Capacitor, try opening system browser or location
-      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
-        window.Capacitor.Plugins.Browser.open({ url: url }).catch(() => {
-          window.open(url, '_system');
-        });
+      if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        window.open(url, '_system');
         return;
       }
     } catch (e) {
-      console.warn('Capacitor browser open failed:', e);
+      console.warn('Capacitor browser open notice:', e);
     }
 
-    // 2. Standard and fallback triggers
     try {
       const a = document.createElement('a');
       a.href = url;
-      a.target = '_system';
+      a.target = '_blank';
       a.download = apkFileName;
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => document.body.removeChild(a), 500);
+      setTimeout(() => { if (document.body.contains(a)) document.body.removeChild(a); }, 500);
     } catch (e) {
       window.location.href = url;
     }
@@ -125,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.copyUpdateLink = function(url, ver) {
     const versionStr = ver || CURRENT_VERSION;
     const apkFileName = `TrainIA-v${versionStr}.apk`;
-    if (!url) url = `https://github.com/EdgarGoPr/TrainIA/raw/main/${apkFileName}`;
+    if (!url) url = `https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/${apkFileName}`;
     navigator.clipboard.writeText(url).then(() => {
       window.systemAudio.playItemUse();
       window.systemUI.showToast('[SISTEMA]: Enlace directo copiado al portapapeles.', 'normal');
@@ -179,15 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (titleEl) titleEl.textContent = `[ ESTADO DE ACTUALIZACIÓN DEL SISTEMA ]`;
 
         const changelogList = remoteData?.changelog || [
-          'Versión oficial v1.1.5 de TrainIA',
-          'El archivo APK incluye siempre la versión en su nombre (TrainIA-v1.1.5.apk)',
-          'Integración de DownloadListener nativo en MainActivity para descargas directas',
+          'Versión oficial v1.1.6 de TrainIA',
+          'Corrección de descargas duplicadas mediante debounce y bloqueo de redirecciones',
+          'El archivo APK incluye siempre la versión en su nombre (TrainIA-v1.1.6.apk)',
           'Puente nativo Java de notificaciones para Android integrado',
-          'Gestión de actividades en lote en Ajustes (Activar, Desactivar o Borrar)',
-          'Misión Diaria protegida contra borrado accidental de ejercicios'
+          'Gestión de actividades en lote en Ajustes (Activar, Desactivar o Borrar)'
         ];
 
-        const targetDownloadUrl = remoteData?.downloadUrl || `https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA-v${remoteVer}.apk`;
+        const targetDownloadUrl = remoteData?.downloadUrl || `https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/TrainIA-v${remoteVer}.apk`;
         const apkDisplayFileName = remoteData?.apkName || `TrainIA-v${remoteVer}.apk`;
 
         bodyEl.innerHTML = `
@@ -215,8 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="background: rgba(255, 215, 0, 0.08); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 12px; font-size: 0.76rem; color: #fff;">
               <strong style="color: var(--color-gold);">ℹ️ Pasos para actualizar en tu móvil:</strong>
               <ol style="margin-top: 4px; padding-left: 18px; color: #ddd; line-height: 1.35;">
-                <li>Toca el botón <strong>"DESCARGAR APK"</strong> abajo.</li>
-                <li>Tu celular descargará <code>${apkDisplayFileName}</code>.</li>
+                <li>Toca el botón <strong>"DESCARGAR APK"</strong> abajo (1 solo toque).</li>
+                <li>Tu celular descargará <code>${apkDisplayFileName}</code> limpiamente.</li>
                 <li>Toca la notificación de descarga o abre tu carpeta <strong>Descargas</strong> para instalar y actualizar (sin perder tu progreso).</li>
               </ol>
             </div>
