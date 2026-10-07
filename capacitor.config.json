@@ -1,0 +1,6 @@
+{
+  "appId": "com.trainia.system",
+  "appName": "TrainIA",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

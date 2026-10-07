@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TRAIN IA - SISTEMA DE ENTRENAMIENTO</title>
+  
+  <!-- PWA & Mobile Web App Meta -->
+  <meta name="theme-color" content="#05070d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TrainIA System">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/themes.css">
+</head>
+<body>
+
+  <!-- Background Cyber Particle Canvas & Scanlines -->
+  <div id="app-background">
+    <canvas id="bg-canvas"></canvas>
+  </div>
+  <div class="scanlines"></div>
+
+  <!-- Toast Notification Container -->
+  <div id="system-toast-container"></div>
+
+  <!-- Recovery Wave Aura Visual Effect -->
+  <div id="recovery-wave-overlay"></div>
+
+  <!-- Fullscreen Level Up Celebration Overlay -->
+  <div id="level-up-overlay">
+    <div class="level-up-aura"></div>
+    <div class="level-up-content">
+      <div class="level-up-title">[ ¡SUBIDA DE NIVEL! ]</div>
+      <div id="level-up-num-text" class="level-up-number">LVL 2</div>
+      <div id="level-up-pts-text" class="level-up-points">+3 PUNTOS DE ESTADÍSTICA DISPONIBLES</div>
+      <button id="close-level-up-btn" class="claim-reward-btn" style="max-width: 240px; margin: 0 auto;">
+        CONTINUAR
+      </button>
+    </div>
+  </div>
+
+  <!-- Generic System Modal Dialog -->
+  <div id="generic-system-modal" class="system-modal-overlay">
+    <div class="system-modal-window">
+      <div id="generic-modal-title" class="modal-sys-header">[ NOTIFICACIÓN DEL SISTEMA ]</div>
+      <div id="generic-modal-body" class="modal-content-body"></div>
+      <div class="modal-btn-row">
+        <button class="modal-btn" data-action="close-modal">ENTENDIDO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div id="app-root">
+
+    <!-- TOP HEADER HUD -->
+    <header class="system-header">
+      <div class="header-top-row">
+        <div class="system-tag">
+          <span class="pulse-dot"></span>
+          <span>SISTEMA DE ENTRENAMIENTO</span>
+        </div>
+        <div class="header-actions">
+          <div id="header-hunter-rank" class="card-badge" style="font-weight: 900; font-size: 0.78rem;">E</div>
+          <button id="toggle-sound-btn" class="icon-btn" title="Activar/Silenciar sonido">🔊</button>
+        </div>
+      </div>
+
+      <!-- Relentless Countdown to Midnight (23:59:59) -->
+      <div id="quest-countdown-hud" class="quest-countdown-bar">
+        <div class="countdown-label">
+          <span>⏱️</span>
+          <span>TIEMPO RESTANTE HOY:</span>
+        </div>
+        <div id="quest-countdown-time" class="countdown-time">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- MAIN SCROLLABLE CONTENT VIEWPORT -->
+    <main class="content-viewport">
+
+      <!-- ===================================================================
+           TAB 1: PLAYER STATUS SCREEN (ESTADO DEL JUGADOR)
+           =================================================================== -->
+      <section id="tab-status" class="tab-pane">
+
+        <!-- Hunter Hero Profile Card -->
+        <div class="system-card">
+          <div class="hunter-hero-card">
+            <div class="hunter-avatar-box">
+              <span>👤</span>
+              <div id="player-rank-badge-box" class="rank-badge-tag">RANGO E</div>
+            </div>
+            <div class="hunter-info">
+              <div class="hunter-name-row">
+                <span id="player-name-display" class="hunter-name">Sung Jin-woo</span>
+                <button id="edit-hunter-name-btn" class="edit-name-btn" title="Cambiar nombre">✏️</button>
+              </div>
+              <div id="player-title-display" class="hunter-title-chip" title="Cambiar título">
+                [ Rango E: El Más Débil ] ▾
+              </div>
+              <div class="hunter-level-row">
+                <span id="player-level-display" class="level-text">NIVEL 1</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vitals (HP, MP, EXP) -->
+          <div class="vitals-grid">
+            <div class="vital-bar-item">
+              <div class="vital-label-row">
+                <span class="vital-name hp-label">HP (Energía / Vitalidad)</span>
+                <span id="hp-val-text">200 / 200</span>
+              </div>
+              <div class="bar-track">
+                <div id="hp-bar-fill" class="bar-fill hp-fill" style="width: 100%;"></div>
+              </div>
+            </div>
+
+            <div class="vital-bar-item">
+              <div class="vital-label-row">
+                <span class="vital-name mp-label">MP (Foco / Concentración)</span>
+                <span id="mp-val-text">150 / 150</span>
+              </div>
+              <div class="bar-track">
+                <div id="mp-bar-fill" class="bar-fill mp-fill" style="width: 100%;"></div>
+              </div>
+            </div>
+
+            <div class="vital-bar-item">
+              <div class="vital-label-row">
+                <span class="vital-name exp-label">EXP (Progreso al Siguiente Nivel)</span>
+                <span id="exp-val-text">0 / 100 (0%)</span>
+              </div>
+              <div class="bar-track">
+                <div id="exp-bar-fill" class="bar-fill exp-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stat Points Allocation Matrix -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">◈ MATRIZ DE ATRIBUTOS BASE</h3>
+            <span class="card-badge">ASIGNACIÓN</span>
+          </div>
+
+          <div class="stats-header-banner">
+            <span class="available-points-label">PUNTOS DE ESTADÍSTICA DISPONIBLES:</span>
+            <span id="available-stat-points" class="available-points-badge">5</span>
+          </div>
+
+          <div class="stats-grid">
+            <!-- STR -->
+            <div class="stat-row">
+              <div class="stat-info">
+                <div class="stat-code-name">⚔️ STR (Fuerza)</div>
+                <div class="stat-desc">Flexiones, sentadillas, levantamiento y potencia muscular</div>
+              </div>
+              <div class="stat-val-controls">
+                <div id="stat-val-str" class="stat-number">10</div>
+                <button id="stat-btn-str" class="stat-add-btn" title="Asignar punto">+</button>
+              </div>
+            </div>
+
+            <!-- AGI -->
+            <div class="stat-row">
+              <div class="stat-info">
+                <div class="stat-code-name">⚡ AGI (Agilidad)</div>
+                <div class="stat-desc">Carrera, velocidad, saltos, reflejos y cardio intenso</div>
+              </div>
+              <div class="stat-val-controls">
+                <div id="stat-val-agi" class="stat-number">10</div>
+                <button id="stat-btn-agi" class="stat-add-btn" title="Asignar punto">+</button>
+              </div>
+            </div>
+
+            <!-- VIT -->
+            <div class="stat-row">
+              <div class="stat-info">
+                <div class="stat-code-name">🛡️ VIT (Vitalidad)</div>
+                <div class="stat-desc">Resistencia general, volumen de abdominales y regeneración de HP</div>
+              </div>
+              <div class="stat-val-controls">
+                <div id="stat-val-vit" class="stat-number">10</div>
+                <button id="stat-btn-vit" class="stat-add-btn" title="Asignar punto">+</button>
+              </div>
+            </div>
+
+            <!-- INT -->
+            <div class="stat-row">
+              <div class="stat-info">
+                <div class="stat-code-name">🧠 INT (Inteligencia / Foco)</div>
+                <div class="stat-desc">Bloques de estudio, lectura, concentración profunda y reserva de MP</div>
+              </div>
+              <div class="stat-val-controls">
+                <div id="stat-val-int" class="stat-number">10</div>
+                <button id="stat-btn-int" class="stat-add-btn" title="Asignar punto">+</button>
+              </div>
+            </div>
+
+            <!-- PER -->
+            <div class="stat-row">
+              <div class="stat-info">
+                <div class="stat-code-name">👁️ PER (Percepción)</div>
+                <div class="stat-desc">Disciplina, alerta sensorial y detección de hábitos</div>
+              </div>
+              <div class="stat-val-controls">
+                <div id="stat-val-per" class="stat-number">10</div>
+                <button id="stat-btn-per" class="stat-add-btn" title="Asignar punto">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Combat Attributes -->
+          <div class="combat-stats-grid">
+            <div class="combat-stat-pill">
+              <span class="name">Poder Físico:</span>
+              <span id="combat-patk-val" class="val">40</span>
+            </div>
+            <div class="combat-stat-pill">
+              <span class="name">Velocidad / Ritmo:</span>
+              <span id="combat-spd-val" class="val">22</span>
+            </div>
+            <div class="combat-stat-pill">
+              <span class="name">Tasa Recuperación:</span>
+              <span id="combat-rec-val" class="val">18 HP/d</span>
+            </div>
+            <div class="combat-stat-pill">
+              <span class="name">Capacidad Mental:</span>
+              <span id="combat-foc-val" class="val">25</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ===================================================================
+           TAB 2: DAILY QUEST SCREEN (MISIÓN DIARIA: PREPARACIÓN PARA SER FUERTE)
+           =================================================================== -->
+      <section id="tab-daily-quest" class="tab-pane active">
+
+        <!-- Penalty Zone Alert Banner (Visible when penalty is active) -->
+        <div id="penalty-zone-banner" style="display: none;"></div>
+
+        <!-- Quest Header Hero Banner -->
+        <div id="daily-quest-banner-container"></div>
+
+        <!-- Quest Tasks List -->
+        <div id="daily-quest-tasks-container"></div>
+
+        <!-- Master Claim Reward Button -->
+        <div id="claim-quest-container" class="claim-reward-container"></div>
+      </section>
+
+
+      <!-- ===================================================================
+           TAB 3: INVENTORY & LOOT BOX SCREEN (INVENTARIO & RECOMPENSAS)
+           =================================================================== -->
+      <section id="tab-inventory" class="tab-pane">
+
+        <!-- Loot Box Unboxing Hero Box -->
+        <div id="lootbox-hero-box" class="lootbox-hero-card"></div>
+
+        <!-- Claimed Inventory Items List -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">🎒 OBJETOS & RECOMPENSAS</h3>
+            <button id="add-custom-reward-btn" class="card-badge" style="cursor: pointer; background: rgba(0, 229, 255, 0.2);">
+              + NUEVA RECOMPENSA
+            </button>
+          </div>
+          <div id="inventory-items-list" class="inventory-list"></div>
+        </div>
+      </section>
+
+
+      <!-- ===================================================================
+           TAB 4: DUNGEON LOGS SCREEN (HISTORIAL & REGISTRO)
+           =================================================================== -->
+      <section id="tab-history" class="tab-pane">
+
+        <!-- Lifetime Audit Metrics Grid -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">📜 HISTORIAL ACUMULADO DEL CAZADOR</h3>
+            <span class="card-badge">MÉTRICAS</span>
+          </div>
+          <div id="logs-metrics-grid" class="history-metrics-grid"></div>
+        </div>
+
+        <!-- Audit Timeline Feed -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">🗓️ REGISTRO DE MAZMORRAS DIARIAS</h3>
+            <span class="card-badge">AUDITORÍA</span>
+          </div>
+          <div id="logs-timeline-list" class="history-timeline-list"></div>
+        </div>
+
+        <!-- Data Backup & Export Controls -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">💾 COPIA DE SEGURIDAD</h3>
+            <span class="card-badge">PERSISTENCIA</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Exporta tus datos en JSON para guardar tu progreso sin servidores externos.
+          </p>
+          <div style="display: flex; gap: 8px;">
+            <button id="export-backup-btn" class="modal-btn">📥 EXPORTAR JSON</button>
+            <button id="import-backup-btn" class="modal-btn" style="background: rgba(255, 215, 0, 0.15); border-color: var(--color-gold); color: var(--color-gold);">
+              📤 IMPORTAR JSON
+            </button>
+            <input type="file" id="backup-file-input" accept=".json" style="display: none;">
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ===================================================================
+           TAB 5: SETTINGS & CONFIG SCREEN (AJUSTES)
+           =================================================================== -->
+      <section id="tab-settings" class="tab-pane">
+        <!-- Android Native APK Download & PWA Installation Card -->
+        <div id="pwa-install-banner" class="system-card" style="border-color: var(--color-gold); background: rgba(255, 215, 0, 0.08);">
+          <div class="system-card-header" style="border-bottom-color: rgba(255, 215, 0, 0.3);">
+            <h3 class="card-title" style="color: var(--color-gold);">🤖 APP NATIVA ANDROID (APK)</h3>
+            <span class="card-badge" style="border-color: var(--color-gold); color: var(--color-gold);">ARCHIVO APK</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #fff; margin-bottom: 12px;">
+            Descarga el archivo instalador oficial <strong>.apk</strong> de TrainIA e instálalo directamente en tu dispositivo Android como una app nativa:
+          </p>
+          <a href="TrainIA.apk" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; padding: 14px; font-size: 0.95rem; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: 0 0 20px rgba(0, 229, 255, 0.5); display: block; margin-bottom: 8px;">
+            📥 DESCARGAR APK NATIVO (4 MB)
+          </a>
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center;">
+            [COMPATIBLE CON CUALQUIER ANDROID 8.0+]
+          </div>
+        </div>
+
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">⚙️ CONFIGURACIÓN DE OBJETIVOS</h3>
+            <span class="card-badge">PARÁMETROS</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+            Ajusta la dificultad de tus objetivos diarios según tu nivel físico actual:
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Flexiones (reps):</label>
+              <input type="number" id="target-pushups-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Sentadillas (reps):</label>
+              <input type="number" id="target-squats-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Abdominales (reps):</label>
+              <input type="number" id="target-situps-input" value="100" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Carrera activa (km):</label>
+              <input type="number" step="0.5" id="target-running-input" value="10.0" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.85rem; font-family: var(--font-hud);">Trabajo Foco / INT (min):</label>
+              <input type="number" id="target-deepwork-input" value="60" style="width: 80px; padding: 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono);">
+            </div>
+
+            <button id="save-settings-btn" class="modal-btn" style="margin-top: 8px;">
+              💾 GUARDAR CAMBIOS
+            </button>
+          </div>
+        </div>
+
+        <!-- Scheduled Notifications Card -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">🔔 NOTIFICACIONES DEL SISTEMA</h3>
+            <span class="card-badge">HORARIOS</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Configura los horarios en los que el Sistema te enviará advertencias con el desglose exacto de lo que te falta completar:
+          </p>
+          <div id="notifications-config-container"></div>
+        </div>
+
+        <!-- App Update Card -->
+        <div class="system-card" style="border-color: var(--color-primary); background: rgba(0, 229, 255, 0.05);">
+          <div class="system-card-header">
+            <h3 class="card-title">🔄 ACTUALIZACIÓN DEL SISTEMA</h3>
+            <span class="card-badge">V1.2.0</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #fff; margin-bottom: 12px;">
+            Sincroniza y descarga la última versión del software, nuevas recompensas y actualizaciones del HUD:
+          </p>
+          <button id="update-system-app-btn" class="claim-reward-btn" style="padding: 12px; font-size: 0.9rem; background: linear-gradient(135deg, #00b4d8, #00e5ff); color: #05070d; box-shadow: var(--glow-cyan); margin-bottom: 8px;">
+            🔄 ACTUALIZAR SISTEMA A LA ÚLTIMA VERSIÓN
+          </button>
+          <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center;">
+            [Limpia la caché y actualiza el firmware a la última versión disponible]
+          </div>
+        </div>
+
+        <!-- Debug / Testing Mode -->
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="card-title">🧪 ZONA DE PRUEBAS DEL SISTEMA</h3>
+            <span class="card-badge" style="border-color: var(--penalty-red); color: var(--penalty-red);">MODO TEST</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Herramientas para probar la respuesta del sistema sin esperar a medianoche:
+          </p>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button id="test-penalty-btn" class="modal-btn" style="border-color: var(--penalty-red); color: var(--penalty-red); background: rgba(255, 0, 85, 0.1);">
+              ⚠️ PROBAR ZONA DE CASTIGO (PENALTY MODE)
+            </button>
+            <button id="reset-system-btn" class="modal-btn" style="border-color: #666; color: #aaa; background: rgba(0,0,0,0.3);">
+              🗑️ REINICIAR SISTEMA (RESTABLECER TODO)
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ===================================================================
+         BOTTOM NAVIGATION BAR (NATIVE MOBILE FEEL)
+         =================================================================== -->
+    <nav class="system-bottom-nav">
+      <button class="nav-item-btn" data-target-tab="tab-status">
+        <span class="nav-item-icon">📊</span>
+        <span class="nav-item-label">ESTADO</span>
+      </button>
+
+      <button class="nav-item-btn active" data-target-tab="tab-daily-quest">
+        <span class="nav-item-icon">⚔️</span>
+        <span class="nav-item-label">MISIÓN</span>
+      </button>
+
+      <button class="nav-item-btn" data-target-tab="tab-inventory">
+        <span class="nav-item-icon">🎒</span>
+        <span class="nav-item-label">BOTÍN</span>
+        <span id="nav-inv-badge" class="nav-badge" style="display: none;">1</span>
+      </button>
+
+      <button class="nav-item-btn" data-target-tab="tab-history">
+        <span class="nav-item-icon">📜</span>
+        <span class="nav-item-label">LOGS</span>
+      </button>
+
+      <button class="nav-item-btn" data-target-tab="tab-settings">
+        <span class="nav-item-icon">⚙️</span>
+        <span class="nav-item-label">AJUSTES</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="js/audio.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/quests.js"></script>
+  <script src="js/loot.js"></script>
+  <script src="js/logs.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
