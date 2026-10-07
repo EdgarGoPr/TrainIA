@@ -85,77 +85,97 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Sychronizer)
-  const CURRENT_VERSION = '1.0.0';
+  // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Synchronizer)
+  const CURRENT_VERSION = '1.1.0';
   const updateAppBtn = document.getElementById('update-system-app-btn');
   if (updateAppBtn) {
     updateAppBtn.addEventListener('click', async () => {
       window.systemAudio.playStatusRecovery();
       window.systemUI.showToast('[SISTEMA]: Conectando con los servidores del Sistema (GitHub)...', 'normal');
 
+      let remoteData = null;
+      let remoteVer = CURRENT_VERSION;
+
       try {
-        // Clear caches
+        // Clear caches and refresh service worker
         if ('caches' in window) {
           const cacheKeys = await caches.keys();
           await Promise.all(cacheKeys.map(k => caches.delete(k)));
         }
 
-        // Try fetching remote version.json from GitHub
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let reg of regs) {
+            await reg.update();
+          }
+        }
+
+        // Fetch remote version.json from GitHub
         const remoteUrl = `https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/version.json?t=${Date.now()}`;
         const res = await fetch(remoteUrl, { cache: 'no-store' });
 
         if (res.ok) {
-          const remoteData = await res.json();
-          const remoteVer = remoteData.version || CURRENT_VERSION;
-
-          if (remoteVer !== CURRENT_VERSION) {
-            window.systemAudio.playLevelUp();
-            const modal = document.getElementById('generic-system-modal');
-            const titleEl = document.getElementById('generic-modal-title');
-            const bodyEl = document.getElementById('generic-modal-body');
-
-            if (modal && bodyEl) {
-              if (titleEl) titleEl.textContent = `[ ACTUALIZACIÓN DEL SISTEMA DISPONIBLE: v${remoteVer} ]`;
-              bodyEl.innerHTML = `
-                <div style="padding: 6px 0;">
-                  <div style="font-size: 2rem; text-align: center; margin-bottom: 8px;">⚡</div>
-                  <h4 style="font-family: var(--font-hud); color: var(--color-primary-glow); margin-bottom: 8px; text-align: center;">
-                    NUEVA VERSIÓN DETECTADA (v${remoteVer})
-                  </h4>
-                  <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-                    Se han publicado nuevas funciones y mejoras para el Sistema de entrenamiento:
-                  </p>
-                  <div style="background: rgba(0, 229, 255, 0.08); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 14px; font-size: 0.8rem;">
-                    <strong style="color: #fff;">Novedades del Parche:</strong>
-                    <ul style="margin-top: 6px; padding-left: 18px; color: var(--text-muted);">
-                      ${(remoteData.changelog || ['Mejoras de rendimiento']).map(c => `<li>${c}</li>`).join('')}
-                    </ul>
-                  </div>
-                  <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <a href="${remoteData.downloadUrl || 'https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk'}" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; font-size: 0.88rem; padding: 12px;">
-                      📥 DESCARGAR NUEVO APK (v${remoteVer})
-                    </a>
-                    <button class="modal-btn" onclick="window.location.reload(true);" style="padding: 10px; font-size: 0.8rem;">
-                      🔄 REINICIAR Y APLICAR EN PWA
-                    </button>
-                  </div>
-                </div>
-              `;
-              modal.classList.add('active');
-              return;
-            }
-          }
+          remoteData = await res.json();
+          remoteVer = remoteData.version || CURRENT_VERSION;
         }
       } catch (e) {
-        console.warn('Remote version check failed:', e);
+        console.warn('Remote version check notice:', e);
       }
 
-      // If already on latest version
-      window.systemAudio.playQuestComplete();
-      window.systemUI.showToast(`[SISTEMA]: Tu versión (v${CURRENT_VERSION}) ya es la más reciente. HUD sincronizado.`, 'success');
-      setTimeout(() => {
-        window.location.reload(true);
-      }, 1000);
+      window.systemAudio.playLevelUp();
+      const modal = document.getElementById('generic-system-modal');
+      const titleEl = document.getElementById('generic-modal-title');
+      const bodyEl = document.getElementById('generic-modal-body');
+
+      if (modal && bodyEl) {
+        const isUpToDate = remoteVer === CURRENT_VERSION;
+        if (titleEl) titleEl.textContent = `[ ESTADO DE ACTUALIZACIÓN DEL SISTEMA ]`;
+
+        const changelogList = remoteData?.changelog || [
+          'Versión oficial v1.1.0 de TrainIA',
+          'Misión Diaria protegida contra borrado accidental de tareas',
+          'Gestión por selección múltiple en Ajustes (Activar, Desactivar, Borrar)',
+          'Sincronización remota y soporte de notificaciones nativas en celular'
+        ];
+
+        bodyEl.innerHTML = `
+          <div style="padding: 6px 0;">
+            <div style="font-size: 2.5rem; text-align: center; margin-bottom: 8px;">⚡</div>
+            <h3 style="font-family: var(--font-hud); color: var(--color-primary-glow); margin-bottom: 6px; text-align: center; font-size: 1.05rem;">
+              ${isUpToDate ? `SISTEMA SINCRONIZADO (v${CURRENT_VERSION})` : `¡NUEVA VERSIÓN DETECTADA! (v${remoteVer})`}
+            </h3>
+            <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; font-family: var(--font-mono); font-size: 0.75rem;">
+              <span style="background: rgba(0,229,255,0.1); border: 1px solid var(--border-cyan); padding: 2px 8px; border-radius: 4px; color: #fff;">
+                Local: v${CURRENT_VERSION}
+              </span>
+              <span style="background: rgba(0,255,136,0.1); border: 1px solid #00ff88; padding: 2px 8px; border-radius: 4px; color: #00ff88;">
+                GitHub: v${remoteVer}
+              </span>
+            </div>
+
+            <div style="background: rgba(0, 229, 255, 0.08); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 14px; font-size: 0.8rem;">
+              <strong style="color: #fff; font-family: var(--font-hud);">◈ Novedades y Mejoras del Sistema:</strong>
+              <ul style="margin-top: 6px; padding-left: 18px; color: var(--text-muted); line-height: 1.4;">
+                ${changelogList.map(c => `<li>${c}</li>`).join('')}
+              </ul>
+            </div>
+
+            <p style="font-size: 0.78rem; color: #fff; margin-bottom: 12px; text-align: center;">
+              ¿Cómo deseas aplicar la actualización en tu dispositivo?
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <a href="${remoteData?.downloadUrl || 'https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk'}" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; font-size: 0.88rem; padding: 12px; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: var(--glow-cyan);">
+                📥 DESCARGAR / INSTALAR APK v${remoteVer} (ANDROID)
+              </a>
+              <button class="modal-btn" onclick="if('caches' in window){caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>{window.location.reload(true);})}else{window.location.reload(true);}" style="padding: 10px; font-size: 0.8rem; background: rgba(0, 229, 255, 0.15); border-color: var(--border-cyan); color: #fff;">
+                🔄 LIMPIAR CACHÉ Y RECARGAR PWA
+              </button>
+            </div>
+          </div>
+        `;
+        modal.classList.add('active');
+      }
     });
   }
 

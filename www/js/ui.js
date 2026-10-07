@@ -480,7 +480,7 @@ class SystemUIController {
   }
 
   /* ==========================================================================
-     SETTINGS SCREEN
+     SETTINGS SCREEN & DYNAMIC ACTIVITIES BULK MANAGEMENT
      ========================================================================== */
   renderSettingsScreen() {
     const container = document.getElementById('activities-config-container');
@@ -488,34 +488,211 @@ class SystemUIController {
 
     if (container) {
       container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          ${activities.map(act => `
-            <div style="background: rgba(14, 21, 37, 0.6); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-family: var(--font-hud); font-size: 0.85rem; font-weight:700; color:#fff;">
-                  ${act.name}
-                </div>
-                <div style="font-size: 0.72rem; color: var(--text-muted);">
-                  ${act.category || 'Entrenamiento'} | Unidad: ${act.unit}
-                </div>
-              </div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <input type="number" step="any" value="${act.target}" onchange="window.systemState.updateActivityTarget('${act.id}', this.value); window.questController.renderDailyQuest();" style="width: 70px; padding: 4px 6px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono); font-size: 0.85rem;">
-                <button class="icon-btn" style="width: 26px; height: 26px; font-size: 0.75rem; border-color: rgba(255,0,85,0.4); color: var(--penalty-red);" onclick="window.questController.confirmDeleteTask('${act.id}');" title="Eliminar actividad">🗑️</button>
-              </div>
+        <div class="bulk-activities-manager">
+          <!-- Bulk Action Control Toolbar -->
+          <div class="bulk-toolbar-card" style="background: rgba(5, 12, 24, 0.85); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label style="display: flex; align-items: center; gap: 8px; font-family: var(--font-hud); font-size: 0.82rem; color: #fff; cursor: pointer;">
+                <input type="checkbox" id="select-all-activities-cb" style="width: 17px; height: 17px; cursor: pointer; accent-color: var(--color-primary);">
+                <span>SELECCIONAR TODAS</span>
+              </label>
+              <span id="selected-activities-badge" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); background: rgba(0, 229, 255, 0.08); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(0, 229, 255, 0.2);">
+                0 seleccionadas
+              </span>
             </div>
-          `).join('')}
 
-          <button id="add-settings-activity-btn" class="modal-btn" style="margin-top: 6px; background: rgba(0, 229, 255, 0.15); border-color: var(--color-primary); color: var(--color-primary-glow);">
-            + AGREGAR NUEVA ACTIVIDAD
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+              <select id="bulk-activity-action-select" disabled style="width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-hud); font-size: 0.8rem; cursor: pointer; opacity: 0.5;">
+                <option value="">-- Elige acción para las seleccionadas --</option>
+                <option value="deactivate">⏸️ Desactivar seleccionadas (Pausar de Misión)</option>
+                <option value="activate">▶️ Activar seleccionadas (Incluir en Misión)</option>
+                <option value="delete">🗑️ Borrar seleccionadas (Eliminar definitivo)</option>
+              </select>
+              <button id="apply-bulk-activity-btn" class="modal-btn" disabled style="padding: 8px 14px; font-size: 0.8rem; opacity: 0.5; white-space: nowrap;">
+                APLICAR
+              </button>
+            </div>
+          </div>
+
+          <!-- List of activities -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${activities.map(act => {
+              const isActive = act.active !== false;
+              return `
+                <div class="activity-config-row" data-act-id="${act.id}" style="
+                  background: ${isActive ? 'rgba(14, 21, 37, 0.65)' : 'rgba(10, 12, 18, 0.45)'};
+                  border: 1px ${isActive ? 'solid var(--border-cyan)' : 'dashed rgba(255, 170, 0, 0.35)'};
+                  border-radius: var(--radius-sm);
+                  padding: 10px 12px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  gap: 8px;
+                  opacity: ${isActive ? '1' : '0.75'};
+                  transition: all 0.2s ease;
+                ">
+                  <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                    <input type="checkbox" class="activity-item-checkbox" data-act-id="${act.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-primary); flex-shrink: 0;">
+                    <div style="min-width: 0;">
+                      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <span style="font-family: var(--font-hud); font-size: 0.86rem; font-weight: 700; color: #fff; text-decoration: ${isActive ? 'none' : 'line-through'};">
+                          ${act.name}
+                        </span>
+                        <span style="
+                          font-size: 0.65rem;
+                          font-family: var(--font-mono);
+                          padding: 1px 6px;
+                          border-radius: 3px;
+                          background: ${isActive ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 170, 0, 0.15)'};
+                          color: ${isActive ? '#00ff88' : '#ffaa00'};
+                          border: 1px solid ${isActive ? 'rgba(0, 255, 136, 0.4)' : 'rgba(255, 170, 0, 0.4)'};
+                        ">
+                          ${isActive ? '● ACTIVA' : '○ DESACTIVADA'}
+                        </span>
+                      </div>
+                      <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                        ${act.category || 'Entrenamiento'} | Unidad: <strong>${act.unit}</strong> | Sube: <strong>${(act.stat || 'STR').toUpperCase()}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      <label style="font-size: 0.7rem; color: var(--text-muted);">Meta:</label>
+                      <input type="number" step="any" value="${act.target}" onchange="window.systemState.updateActivityTarget('${act.id}', this.value); window.questController.renderDailyQuest();" style="width: 60px; padding: 4px 6px; background: rgba(0,0,0,0.6); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; text-align: right; font-family: var(--font-mono); font-size: 0.85rem;">
+                    </div>
+                    <button class="icon-btn" style="width: 28px; height: 28px; font-size: 0.75rem; border-color: ${isActive ? 'rgba(255,170,0,0.4)' : 'rgba(0,255,136,0.4)'}; color: ${isActive ? '#ffaa00' : '#00ff88'};" onclick="window.systemUI.toggleSingleActivity('${act.id}');" title="${isActive ? 'Desactivar de Misión' : 'Activar en Misión'}">
+                      ${isActive ? '⏸️' : '▶️'}
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <button id="add-settings-activity-btn" class="modal-btn" style="width: 100%; margin-top: 10px; background: rgba(0, 229, 255, 0.12); border: 1px solid var(--color-primary); color: var(--color-primary-glow); padding: 12px; font-family: var(--font-hud); font-size: 0.85rem;">
+            + AGREGAR NUEVA ACTIVIDAD / OBJETIVO
           </button>
         </div>
       `;
+
+      this.bindBulkActivityEvents();
     }
 
     if (window.systemNotifications) {
       window.systemNotifications.renderNotificationSettings();
     }
+  }
+
+  bindBulkActivityEvents() {
+    const selectAllCb = document.getElementById('select-all-activities-cb');
+    const checkboxes = document.querySelectorAll('.activity-item-checkbox');
+    const actionSelect = document.getElementById('bulk-activity-action-select');
+    const applyBtn = document.getElementById('apply-bulk-activity-btn');
+    const badge = document.getElementById('selected-activities-badge');
+
+    const updateControls = () => {
+      const selectedBoxes = document.querySelectorAll('.activity-item-checkbox:checked');
+      const count = selectedBoxes.length;
+
+      if (badge) {
+        badge.textContent = `${count} seleccionada${count === 1 ? '' : 's'}`;
+        badge.style.color = count > 0 ? 'var(--color-primary-glow)' : 'var(--text-muted)';
+        badge.style.borderColor = count > 0 ? 'var(--color-primary)' : 'rgba(0, 229, 255, 0.2)';
+      }
+
+      if (actionSelect && applyBtn) {
+        if (count > 0) {
+          actionSelect.disabled = false;
+          actionSelect.style.opacity = '1';
+          applyBtn.disabled = false;
+          applyBtn.style.opacity = '1';
+          applyBtn.style.background = 'linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(0, 180, 216, 0.3))';
+          applyBtn.style.borderColor = 'var(--color-primary)';
+          applyBtn.style.color = '#fff';
+        } else {
+          actionSelect.disabled = true;
+          actionSelect.style.opacity = '0.5';
+          applyBtn.disabled = true;
+          applyBtn.style.opacity = '0.5';
+          applyBtn.style.background = '';
+          applyBtn.style.borderColor = '';
+          applyBtn.style.color = '';
+        }
+      }
+
+      if (selectAllCb) {
+        selectAllCb.checked = count > 0 && count === checkboxes.length;
+        selectAllCb.indeterminate = count > 0 && count < checkboxes.length;
+      }
+    };
+
+    if (selectAllCb) {
+      selectAllCb.addEventListener('change', () => {
+        checkboxes.forEach(cb => {
+          cb.checked = selectAllCb.checked;
+        });
+        updateControls();
+      });
+    }
+
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', updateControls);
+    });
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        const action = actionSelect?.value;
+        const selectedBoxes = Array.from(document.querySelectorAll('.activity-item-checkbox:checked'));
+        const selectedIds = selectedBoxes.map(cb => cb.dataset.actId);
+
+        if (!action || selectedIds.length === 0) {
+          this.showToast('[SISTEMA]: Selecciona una opción del desplegable.', 'warning');
+          return;
+        }
+
+        this.executeBulkActivityAction(action, selectedIds);
+      });
+    }
+  }
+
+  executeBulkActivityAction(action, selectedIds) {
+    if (action === 'delete') {
+      const confirmDelete = confirm(`¿Estás seguro de que deseas eliminar permanentemente las ${selectedIds.length} actividades seleccionadas del Sistema?`);
+      if (confirmDelete) {
+        window.systemAudio.playClick();
+        window.systemState.removeActivities(selectedIds);
+        this.showToast(`[SISTEMA]: ${selectedIds.length} actividad(es) eliminada(s) permanentemente.`, 'normal');
+        window.questController.renderDailyQuest();
+        this.renderSettingsScreen();
+        if (window.systemNotifications) window.systemNotifications.syncNativeScheduledAlarms();
+      }
+    } else if (action === 'deactivate') {
+      window.systemAudio.playClick();
+      window.systemState.deactivateActivities(selectedIds);
+      this.showToast(`[SISTEMA]: ${selectedIds.length} actividad(es) desactivada(s) de la Misión Diaria.`, 'normal');
+      window.questController.renderDailyQuest();
+      this.renderSettingsScreen();
+      if (window.systemNotifications) window.systemNotifications.syncNativeScheduledAlarms();
+    } else if (action === 'activate') {
+      window.systemAudio.playQuestComplete();
+      window.systemState.activateActivities(selectedIds);
+      this.showToast(`[SISTEMA]: ${selectedIds.length} actividad(es) activada(s) e incorporadas a la Misión.`, 'success');
+      window.questController.renderDailyQuest();
+      this.renderSettingsScreen();
+      if (window.systemNotifications) window.systemNotifications.syncNativeScheduledAlarms();
+    }
+  }
+
+  toggleSingleActivity(actId) {
+    window.systemAudio.playClick();
+    window.systemState.toggleActivityStatus(actId);
+    const act = window.systemState.state.settings.customActivities?.find(a => a.id === actId);
+    const statusText = act && act.active !== false ? 'activada' : 'desactivada';
+    this.showToast(`[SISTEMA]: Actividad "${act?.name || ''}" ${statusText}.`, 'normal');
+    window.questController.renderDailyQuest();
+    this.renderSettingsScreen();
+    if (window.systemNotifications) window.systemNotifications.syncNativeScheduledAlarms();
   }
 
   saveSettings() {
