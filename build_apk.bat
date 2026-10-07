@@ -3,6 +3,15 @@ set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
 set "ANDROID_HOME=C:\Users\gonzalezdeprada_e\AppData\Local\Android\Sdk"
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
+REM Extract version from version.json
+for /f "tokens=2 delims=:, " %%a in ('findstr /i "\"version\":" version.json') do (
+    set "APP_VER=%%~a"
+)
+
+echo ========================================================
+echo   [BUILD PIPELINE] TrainIA System APK v%APP_VER%
+echo ========================================================
+
 echo [1/4] Synchronizing web files to www directory...
 if not exist "www" mkdir "www"
 copy /Y "index.html" "www\index.html"
@@ -32,10 +41,18 @@ if %ERRORLEVEL% NEQ 0 (
 )
 cd ..
 
-echo [4/4] Copying compiled APK to root workspace...
-copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "TrainIA.apk"
-copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "www\TrainIA.apk"
+echo [4/4] Copying compiled versioned APK to root workspace...
+if exist "android\app\build\outputs\apk\debug\TrainIA-v%APP_VER%.apk" (
+    copy /Y "android\app\build\outputs\apk\debug\TrainIA-v%APP_VER%.apk" "TrainIA-v%APP_VER%.apk"
+    copy /Y "android\app\build\outputs\apk\debug\TrainIA-v%APP_VER%.apk" "TrainIA.apk"
+    copy /Y "android\app\build\outputs\apk\debug\TrainIA-v%APP_VER%.apk" "www\TrainIA-v%APP_VER%.apk"
+) else if exist "android\app\build\outputs\apk\debug\app-debug.apk" (
+    copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "TrainIA-v%APP_VER%.apk"
+    copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "TrainIA.apk"
+    copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "www\TrainIA-v%APP_VER%.apk"
+)
 
 echo ========================================================
-echo SUCCESS: TrainIA.apk v1.1.4 built and updated in root!
+echo SUCCESS: TrainIA-v%APP_VER%.apk compiled and ready!
+echo Output: TrainIA-v%APP_VER%.apk ^& TrainIA.apk
 echo ========================================================
