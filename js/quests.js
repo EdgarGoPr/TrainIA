@@ -286,11 +286,6 @@ class QuestController {
                 <button class="direct-input-btn" data-action="edit-task" data-task-id="${task.id}" title="Ingresar valor">
                   ✏️
                 </button>
-                ${!isCompleted ? `
-                  <button class="direct-input-btn" data-action="delete-task" data-task-id="${task.id}" style="color: var(--penalty-red); border-color: rgba(255,0,85,0.3);" title="Quitar actividad">
-                    🗑️
-                  </button>
-                ` : ''}
               </div>
             </div>
 

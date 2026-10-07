@@ -15,11 +15,11 @@ const SYSTEM_TITLES = [
 ];
 
 const DEFAULT_ACTIVITIES = [
-  { id: 'pushups', name: 'Flexiones de brazos', sub: 'Push-ups', target: 100, unit: 'reps', stat: 'str', category: 'Fuerza (STR)', incs: [1, 5, 10, 25] },
-  { id: 'squats', name: 'Sentadillas', sub: 'Squats', target: 100, unit: 'reps', stat: 'str', category: 'Piernas (STR)', incs: [1, 5, 10, 25] },
-  { id: 'situps', name: 'Abdominales', sub: 'Sit-ups', target: 100, unit: 'reps', stat: 'vit', category: 'Core (VIT)', incs: [1, 5, 10, 25] },
-  { id: 'running', name: 'Carrera o Caminata activa', sub: 'Cardio', target: 10.0, unit: 'km', stat: 'agi', category: 'Agilidad (AGI)', incs: [0.5, 1.0, 2.5, 5.0] },
-  { id: 'deepwork', name: 'Bloque de Foco / Estudio', sub: 'Mente', target: 60, unit: 'min', stat: 'int', category: 'Inteligencia (INT)', incs: [5, 15, 25, 30] }
+  { id: 'pushups', name: 'Flexiones de brazos', sub: 'Push-ups', target: 100, unit: 'reps', stat: 'str', category: 'Fuerza (STR)', incs: [1, 5, 10, 25], active: true },
+  { id: 'squats', name: 'Sentadillas', sub: 'Squats', target: 100, unit: 'reps', stat: 'str', category: 'Piernas (STR)', incs: [1, 5, 10, 25], active: true },
+  { id: 'situps', name: 'Abdominales', sub: 'Sit-ups', target: 100, unit: 'reps', stat: 'vit', category: 'Core (VIT)', incs: [1, 5, 10, 25], active: true },
+  { id: 'running', name: 'Carrera o Caminata activa', sub: 'Cardio', target: 10.0, unit: 'km', stat: 'agi', category: 'Agilidad (AGI)', incs: [0.5, 1.0, 2.5, 5.0], active: true },
+  { id: 'deepwork', name: 'Bloque de Foco / Estudio', sub: 'Mente', target: 60, unit: 'min', stat: 'int', category: 'Inteligencia (INT)', incs: [5, 15, 25, 30], active: true }
 ];
 
 const DEFAULT_LOOT_TABLE = [
@@ -56,7 +56,9 @@ class SystemStateManager {
     const today = this.getTodayDateString();
     const tasksMap = {};
     DEFAULT_ACTIVITIES.forEach(a => {
-      tasksMap[a.id] = { ...a, current: 0 };
+      if (a.active !== false) {
+        tasksMap[a.id] = { ...a, current: 0, active: true };
+      }
     });
 
     return {
@@ -174,7 +176,10 @@ class SystemStateManager {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
-        customActivities: saved.settings?.customActivities || base.settings.customActivities,
+        customActivities: (saved.settings?.customActivities || base.settings.customActivities).map(a => ({
+          ...a,
+          active: a.active !== false
+        })),
         notifications: {
           ...base.settings.notifications,
           ...(saved.settings?.notifications || {})
@@ -284,7 +289,9 @@ class SystemStateManager {
     const activities = this.state.settings.customActivities || DEFAULT_ACTIVITIES;
     const tasksMap = {};
     activities.forEach(a => {
-      tasksMap[a.id] = { ...a, current: 0 };
+      if (a.active !== false) {
+        tasksMap[a.id] = { ...a, current: 0, active: true };
+      }
     });
 
     this.state.quest = {
@@ -308,7 +315,8 @@ class SystemStateManager {
       unit: unit || 'reps',
       stat: stat || 'str',
       category: category || 'Entrenamiento',
-      incs: incs || [1, 5, 10, 25]
+      incs: incs || [1, 5, 10, 25],
+      active: true
     };
 
     if (!this.state.settings.customActivities) {
@@ -319,7 +327,7 @@ class SystemStateManager {
 
     // Also add to active quest if in progress
     if (this.state.quest.status === 'IN_PROGRESS') {
-      this.state.quest.tasks[id] = { ...newAct, current: 0 };
+      this.state.quest.tasks[id] = { ...newAct, current: 0, active: true };
     }
 
     this.save();
@@ -327,17 +335,81 @@ class SystemStateManager {
   }
 
   /**
-   * Remove an activity from daily quest
+   * Remove a single activity from daily quest
    */
   removeActivity(activityId) {
-    if (!this.state.settings.customActivities) return;
+    this.removeActivities([activityId]);
+  }
 
-    this.state.settings.customActivities = this.state.settings.customActivities.filter(a => a.id !== activityId);
-    if (this.state.quest.tasks[activityId]) {
-      delete this.state.quest.tasks[activityId];
-    }
+  /**
+   * Bulk remove activities
+   */
+  removeActivities(activityIds) {
+    if (!this.state.settings.customActivities || !Array.isArray(activityIds)) return;
+    const idSet = new Set(activityIds);
+
+    this.state.settings.customActivities = this.state.settings.customActivities.filter(a => !idSet.has(a.id));
+    activityIds.forEach(id => {
+      if (this.state.quest.tasks[id]) {
+        delete this.state.quest.tasks[id];
+      }
+    });
 
     this.save();
+  }
+
+  /**
+   * Bulk deactivate activities (pauses them from daily quest without deleting)
+   */
+  deactivateActivities(activityIds) {
+    if (!this.state.settings.customActivities || !Array.isArray(activityIds)) return;
+    const idSet = new Set(activityIds);
+
+    this.state.settings.customActivities.forEach(a => {
+      if (idSet.has(a.id)) {
+        a.active = false;
+      }
+    });
+
+    activityIds.forEach(id => {
+      if (this.state.quest.tasks[id]) {
+        delete this.state.quest.tasks[id];
+      }
+    });
+
+    this.save();
+  }
+
+  /**
+   * Bulk activate activities (re-enables them in daily quest)
+   */
+  activateActivities(activityIds) {
+    if (!this.state.settings.customActivities || !Array.isArray(activityIds)) return;
+    const idSet = new Set(activityIds);
+
+    this.state.settings.customActivities.forEach(a => {
+      if (idSet.has(a.id)) {
+        a.active = true;
+        if (this.state.quest.status === 'IN_PROGRESS' && !this.state.quest.tasks[a.id]) {
+          this.state.quest.tasks[a.id] = { ...a, current: 0, active: true };
+        }
+      }
+    });
+
+    this.save();
+  }
+
+  /**
+   * Toggle activity active/inactive status
+   */
+  toggleActivityStatus(activityId) {
+    const act = this.state.settings.customActivities?.find(a => a.id === activityId);
+    if (!act) return;
+    if (act.active === false) {
+      this.activateActivities([activityId]);
+    } else {
+      this.deactivateActivities([activityId]);
+    }
   }
 
   updateActivityTarget(activityId, newTarget) {
