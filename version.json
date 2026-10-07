@@ -1,0 +1,12 @@
+{
+  "version": "1.2.0",
+  "versionCode": 2,
+  "releaseDate": "2026-10-07",
+  "downloadUrl": "https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk",
+  "webUrl": "https://edgargopr.github.io/TrainIA/",
+  "changelog": [
+    "Notificaciones del Sistema nativas en celular con horarios configurables",
+    "Desglose dinámico de objetivos pendientes estilo Solo Leveling",
+    "Botón de sincronización y actualización del Sistema"
+  ]
+}
