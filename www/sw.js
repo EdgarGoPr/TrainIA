@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainia-system-v1.1.0';
+const CACHE_NAME = 'trainia-system-v1.1.2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Synchronizer)
-  const CURRENT_VERSION = '1.1.0';
+  const CURRENT_VERSION = '1.1.2';
   const updateAppBtn = document.getElementById('update-system-app-btn');
   if (updateAppBtn) {
     updateAppBtn.addEventListener('click', async () => {
@@ -132,10 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (titleEl) titleEl.textContent = `[ ESTADO DE ACTUALIZACIÓN DEL SISTEMA ]`;
 
         const changelogList = remoteData?.changelog || [
-          'Versión oficial v1.1.0 de TrainIA',
-          'Misión Diaria protegida contra borrado accidental de tareas',
-          'Gestión por selección múltiple en Ajustes (Activar, Desactivar, Borrar)',
-          'Sincronización remota y soporte de notificaciones nativas en celular'
+          'Versión oficial v1.1.2 de TrainIA',
+          'Gestión de actividades en lote en Ajustes (Activar, Desactivar o Borrar)',
+          'Misión Diaria protegida contra borrado accidental de ejercicios',
+          'Sincronización forzada y descarga directa de APK v1.1.2'
         ];
 
         bodyEl.innerHTML = `
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </p>
 
             <div style="display: flex; flex-direction: column; gap: 8px;">
-              <a href="${remoteData?.downloadUrl || 'https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk'}" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; font-size: 0.88rem; padding: 12px; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: var(--glow-cyan);">
+              <a href="https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=1.1.2" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; font-size: 0.88rem; padding: 12px; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: var(--glow-cyan);">
                 📥 DESCARGAR / INSTALAR APK v${remoteVer} (ANDROID)
               </a>
               <button class="modal-btn" onclick="if('caches' in window){caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>{window.location.reload(true);})}else{window.location.reload(true);}" style="padding: 10px; font-size: 0.8rem; background: rgba(0, 229, 255, 0.15); border-color: var(--border-cyan); color: #fff;">
