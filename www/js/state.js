@@ -361,11 +361,6 @@ class SystemStateManager {
     this.state.statsSummary.totalKm += (q.tasks.running?.current || 0);
     this.state.statsSummary.totalDeepworkMin += (q.tasks.deepwork?.current || 0);
   }
-    this.state.statsSummary.totalSquats += (q.tasks.squats?.current || 0);
-    this.state.statsSummary.totalSitups += (q.tasks.situps?.current || 0);
-    this.state.statsSummary.totalKm += (q.tasks.running?.current || 0);
-    this.state.statsSummary.totalDeepworkMin += (q.tasks.deepwork?.current || 0);
-  }
 
   triggerPenaltyZone(dateStr) {
     this.state.penalty.isActive = true;
