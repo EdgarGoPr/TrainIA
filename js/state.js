@@ -122,6 +122,16 @@ class SystemStateManager {
         customActivities: JSON.parse(JSON.stringify(DEFAULT_ACTIVITIES)),
         penaltyMinutes: 30,
         theme: 'system-cyan',
+        progressiveOverload: {
+          enabled: true,
+          intervalDays: 7,
+          incrementAmount: 5,
+          lastAppliedStreak: 0
+        },
+        restDays: {
+          weeklyDays: [], // e.g. [0, 6] for Sunday, Saturday
+          activeRestDates: [] // specific date strings 'YYYY-MM-DD'
+        },
         notifications: {
           enabled: true,
           times: ['09:00', '15:00', '21:00'],
@@ -131,7 +141,7 @@ class SystemStateManager {
       meta: {
         createdDate: today,
         lastActiveDate: today,
-        version: '1.1.6'
+        version: '1.2.0'
       }
     };
   }
@@ -176,6 +186,14 @@ class SystemStateManager {
       settings: {
         ...base.settings,
         ...(saved.settings || {}),
+        progressiveOverload: {
+          ...base.settings.progressiveOverload,
+          ...(saved.settings?.progressiveOverload || {})
+        },
+        restDays: {
+          ...base.settings.restDays,
+          ...(saved.settings?.restDays || {})
+        },
         customActivities: (saved.settings?.customActivities || base.settings.customActivities).map(a => ({
           ...a,
           active: a.active !== false
@@ -185,7 +203,7 @@ class SystemStateManager {
           ...(saved.settings?.notifications || {})
         }
       },
-      meta: { ...base.meta, ...(saved.meta || {}), version: '1.1.6' }
+      meta: { ...base.meta, ...(saved.meta || {}), version: '1.2.0' }
     };
     return merged;
   }
@@ -221,20 +239,86 @@ class SystemStateManager {
     if (this.state.player.mp > this.state.player.maxMp) this.state.player.mp = this.state.player.maxMp;
   }
 
+  getStreakExpMultiplier(streak = this.state.statsSummary?.currentStreak || 0) {
+    if (streak >= 30) return { multiplier: 2.0, bonusPercent: 100, label: 'Monarca Imparable (30+ días)', icon: '👑' };
+    if (streak >= 14) return { multiplier: 1.5, bonusPercent: 50, label: 'Voluntad de Acero (14+ días)', icon: '🛡️' };
+    if (streak >= 7) return { multiplier: 1.25, bonusPercent: 25, label: 'Lobo Solitario (7+ días)', icon: '🐺' };
+    if (streak >= 3) return { multiplier: 1.10, bonusPercent: 10, label: 'Despertar de Cazador (3+ días)', icon: '⚡' };
+    return { multiplier: 1.0, bonusPercent: 0, label: 'Entrenamiento Estándar', icon: '⚔️' };
+  }
+
+  isTodayRestDay() {
+    const today = this.getTodayDateString();
+    return this.wasDateRestDay(today);
+  }
+
+  wasDateRestDay(dateStr) {
+    const rest = this.state.settings?.restDays || { weeklyDays: [], activeRestDates: [] };
+    if (rest.activeRestDates && rest.activeRestDates.includes(dateStr)) return true;
+
+    // Parse day of week from dateStr (YYYY-MM-DD)
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        const dayOfWeek = d.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+        if (rest.weeklyDays && rest.weeklyDays.includes(dayOfWeek)) return true;
+      }
+    } catch (e) {
+      console.warn('Date parsing error:', e);
+    }
+    return false;
+  }
+
+  toggleRestDayToday() {
+    const today = this.getTodayDateString();
+    if (!this.state.settings.restDays) {
+      this.state.settings.restDays = { weeklyDays: [], activeRestDates: [] };
+    }
+    const dates = this.state.settings.restDays.activeRestDates || [];
+    const idx = dates.indexOf(today);
+    let isNowRest = false;
+    if (idx >= 0) {
+      dates.splice(idx, 1);
+      isNowRest = false;
+    } else {
+      dates.push(today);
+      isNowRest = true;
+    }
+    this.state.settings.restDays.activeRestDates = dates;
+    this.save();
+    return isNowRest;
+  }
+
+  setWeeklyRestDay(dayIndex, isRest) {
+    if (!this.state.settings.restDays) {
+      this.state.settings.restDays = { weeklyDays: [], activeRestDates: [] };
+    }
+    const weekly = new Set(this.state.settings.restDays.weeklyDays || []);
+    if (isRest) {
+      weekly.add(dayIndex);
+    } else {
+      weekly.delete(dayIndex);
+    }
+    this.state.settings.restDays.weeklyDays = Array.from(weekly);
+    this.save();
+  }
+
   checkDateTransition() {
     const today = this.getTodayDateString();
     const lastDate = this.state.quest.date;
 
     if (lastDate !== today) {
       const yesterdayWasCompleted = this.state.quest.status === 'COMPLETED';
+      const yesterdayWasRest = this.wasDateRestDay(lastDate);
 
       if (!this.state.history[lastDate]) {
-        this.recordHistoryEntry(lastDate, this.state.quest.status);
+        this.recordHistoryEntry(lastDate, yesterdayWasRest ? 'REST_DAY' : this.state.quest.status);
       }
 
-      if (!yesterdayWasCompleted && !this.state.penalty.isActive) {
+      if (!yesterdayWasCompleted && !yesterdayWasRest && !this.state.penalty.isActive) {
         this.triggerPenaltyZone(lastDate);
-      } else if (yesterdayWasCompleted && !this.state.penalty.isActive) {
+      } else if ((yesterdayWasCompleted || yesterdayWasRest) && !this.state.penalty.isActive) {
         this.resetDailyQuest(today);
       } else if (this.state.penalty.isActive) {
         this.state.quest.date = today;
@@ -264,12 +348,19 @@ class SystemStateManager {
       if (this.state.statsSummary.currentStreak > this.state.statsSummary.maxStreak) {
         this.state.statsSummary.maxStreak = this.state.statsSummary.currentStreak;
       }
+    } else if (status === 'REST_DAY') {
+      // Rest Day protects streak: streak is preserved, not reset!
     } else {
       this.state.statsSummary.failedDays++;
       this.state.statsSummary.currentStreak = 0;
     }
     this.state.statsSummary.totalDays++;
     this.state.statsSummary.totalPushups += (q.tasks.pushups?.current || 0);
+    this.state.statsSummary.totalSquats += (q.tasks.squats?.current || 0);
+    this.state.statsSummary.totalSitups += (q.tasks.situps?.current || 0);
+    this.state.statsSummary.totalKm += (q.tasks.running?.current || 0);
+    this.state.statsSummary.totalDeepworkMin += (q.tasks.deepwork?.current || 0);
+  }
     this.state.statsSummary.totalSquats += (q.tasks.squats?.current || 0);
     this.state.statsSummary.totalSitups += (q.tasks.situps?.current || 0);
     this.state.statsSummary.totalKm += (q.tasks.running?.current || 0);
@@ -453,7 +544,9 @@ class SystemStateManager {
     this.state.quest.status = 'COMPLETED';
     this.state.quest.completedAt = new Date().toISOString();
 
-    const expGained = this.getQuestExpReward();
+    const baseExp = this.getQuestExpReward();
+    const streakBuff = this.getStreakExpMultiplier(this.state.statsSummary?.currentStreak || 0);
+    const expGained = Math.round(baseExp * streakBuff.multiplier);
     const levelUpResult = this.addExp(expGained);
 
     this.state.player.statPoints += 3;
@@ -467,14 +560,90 @@ class SystemStateManager {
 
     this.recordHistoryEntry(today, 'COMPLETED');
     this.checkTitleUnlocks();
+
+    // Check progressive overload auto-scaling
+    const overloadResult = this.checkProgressiveOverload();
+
     this.save();
 
     return {
+      baseExp,
       expGained,
+      streakBuff,
       levelUpResult,
       statPointsGained: 3,
-      lootBoxesGained: 1
+      lootBoxesGained: 1,
+      overloadResult
     };
+  }
+
+  checkProgressiveOverload() {
+    const overload = this.state.settings?.progressiveOverload;
+    if (!overload || !overload.enabled) return null;
+
+    const streak = this.state.statsSummary?.currentStreak || 0;
+    const interval = Math.max(1, overload.intervalDays || 7);
+    const increment = overload.incrementAmount || 5;
+
+    if (streak > 0 && streak % interval === 0 && overload.lastAppliedStreak !== streak) {
+      overload.lastAppliedStreak = streak;
+      const modified = this.applyProgressiveOverload(increment);
+      this.save();
+      return { streak, increment, modified };
+    }
+    return null;
+  }
+
+  applyProgressiveOverload(amount = 5) {
+    if (!this.state.settings.customActivities) return [];
+    const modified = [];
+    this.state.settings.customActivities.forEach(act => {
+      let inc = amount;
+      if (act.unit === 'km') {
+        inc = Math.max(0.5, parseFloat((amount * 0.1).toFixed(1)));
+      } else if (act.unit === 'min') {
+        inc = Math.max(5, Math.round(amount));
+      } else {
+        inc = Math.max(1, Math.round(amount));
+      }
+
+      act.target = parseFloat((act.target + inc).toFixed(1));
+      if (this.state.quest?.tasks?.[act.id]) {
+        this.state.quest.tasks[act.id].target = act.target;
+      }
+      modified.push({ name: act.name, newTarget: act.target, unit: act.unit, inc });
+    });
+    this.save();
+    return modified;
+  }
+
+  exportBackupData() {
+    const backupObj = {
+      app: 'TrainIA',
+      version: '1.2.0',
+      exportedAt: new Date().toISOString(),
+      state: this.state
+    };
+    return JSON.stringify(backupObj, null, 2);
+  }
+
+  importBackupData(jsonString) {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const stateToLoad = parsed.state ? parsed.state : parsed;
+
+      if (!stateToLoad || !stateToLoad.player || !stateToLoad.statsSummary) {
+        throw new Error('El archivo no contiene un formato de respaldo válido de TrainIA.');
+      }
+
+      this.state = this.mergeWithDefaults(stateToLoad);
+      this.recalculateMaxVitals();
+      this.checkTitleUnlocks();
+      this.save();
+      return { success: true, message: `Datos del Cazador Nivel ${this.state.player.level} restaurados exitosamente.` };
+    } catch (e) {
+      return { success: false, error: e.message || 'Error al procesar el archivo de respaldo.' };
+    }
   }
 
   addExp(amount) {

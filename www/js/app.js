@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Synchronizer)
-  const CURRENT_VERSION = '1.1.6';
+  const CURRENT_VERSION = '1.2.0';
   let isDownloadInProgress = false;
 
   window.downloadAppUpdate = function(url, ver) {
@@ -180,11 +180,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (titleEl) titleEl.textContent = `[ ESTADO DE ACTUALIZACIÓN DEL SISTEMA ]`;
 
         const changelogList = remoteData?.changelog || [
-          'Versión oficial v1.1.6 de TrainIA',
-          'Corrección de descargas duplicadas mediante debounce y bloqueo de redirecciones',
-          'El archivo APK incluye siempre la versión en su nombre (TrainIA-v1.1.6.apk)',
-          'Puente nativo Java de notificaciones para Android integrado',
-          'Gestión de actividades en lote en Ajustes (Activar, Desactivar o Borrar)'
+          'Versión oficial v1.2.0 de TrainIA (Feature Release):',
+          '⏱️ Cronómetro de descanso táctico entre series con presets rápidos y alarma',
+          '📈 Sobrecarga Progresiva automática y manual basada en racha de entrenamiento',
+          '🛌 Días de descanso fijos y declarables con protección de racha y zona de castigo',
+          '🔥 Multiplicadores de EXP por racha de días consecutivos (+10% a +100% EXP)',
+          '💾 Sistema completo de Exportación e Importación de Respaldo de Progreso (JSON)'
         ];
 
         const targetDownloadUrl = remoteData?.downloadUrl || `https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/TrainIA-v${remoteVer}.apk`;
@@ -237,6 +238,11 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.add('active');
       }
     });
+  }
+
+  // Initialize tactical timer
+  if (window.systemTimer) {
+    window.systemTimer.init();
   }
 
   // Initial welcome chime & notification readiness check

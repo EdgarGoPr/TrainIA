@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trainia-system-v1.1.6';
+const CACHE_NAME = 'trainia-system-v1.2.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS_TO_CACHE = [
   './styles/main.css',
   './styles/themes.css',
   './js/audio.js',
+  './js/timer.js',
   './js/storage.js',
   './js/state.js',
   './js/quests.js',

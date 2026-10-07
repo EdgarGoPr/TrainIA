@@ -31,6 +31,16 @@ class QuestController {
         return;
       }
 
+      const timerBtn = e.target.closest('[data-action="start-task-timer"]');
+      if (timerBtn) {
+        const taskId = timerBtn.dataset.taskId;
+        const task = window.systemState.state.quest.tasks[taskId];
+        if (window.systemTimer) {
+          window.systemTimer.start(60, `Descanso: ${task?.name || 'Serie'}`);
+        }
+        return;
+      }
+
       const editBtn = e.target.closest('[data-action="edit-task"]');
       if (editBtn) {
         const taskId = editBtn.dataset.taskId;
@@ -48,6 +58,16 @@ class QuestController {
       const addActivityBtn = e.target.closest('#add-quest-activity-btn') || e.target.closest('#add-settings-activity-btn');
       if (addActivityBtn) {
         this.showAddActivityModal();
+        return;
+      }
+
+      const toggleRestBtn = e.target.closest('#toggle-today-rest-btn');
+      if (toggleRestBtn) {
+        const isRest = window.systemState.toggleRestDayToday();
+        window.systemAudio.playClick();
+        window.systemUI.showToast(isRest ? '[SISTEMA]: Día de Descanso activado. Tu racha está protegida.' : '[SISTEMA]: Día de descanso desactivado. Misión Diaria reactivada.', 'normal');
+        this.renderDailyQuest();
+        window.systemUI.renderSettingsScreen();
         return;
       }
 
@@ -218,6 +238,9 @@ class QuestController {
     const quest = window.systemState.state.quest;
     const isCompleted = quest.status === 'COMPLETED';
     const isReady = window.systemState.isDailyQuestReadyToClaim();
+    const isRest = window.systemState.isTodayRestDay();
+    const streak = window.systemState.state.statsSummary?.currentStreak || 0;
+    const buff = window.systemState.getStreakExpMultiplier(streak);
 
     // Render Banner
     let totalTargetUnits = 0;
@@ -233,11 +256,38 @@ class QuestController {
     const overallPct = taskList.length > 0 ? Math.min(100, Math.round((totalCurrentUnits / (totalTargetUnits || 1)) * 100)) : 0;
 
     if (bannerContainer) {
+      let restDayHtml = '';
+      if (isRest) {
+        restDayHtml = `
+          <div class="rest-day-banner">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div>
+                <strong style="color: #ffaa00; font-family: var(--font-hud); font-size: 0.95rem;">🛌 DÍA DE DESCANSO Y RECUPERACIÓN</strong>
+                <p style="font-size: 0.78rem; color: #ddd; margin-top: 4px; line-height: 1.35;">
+                  El Sistema ha declarado hoy como jornada de descanso. Tu racha (${streak} días) está protegida contra la Zona de Castigo.
+                </p>
+              </div>
+              <button id="toggle-today-rest-btn" class="modal-btn" style="padding: 6px 10px; font-size: 0.75rem; border-color: #ffaa00; color: #ffaa00; white-space: nowrap;">
+                ⚡ Entrenar hoy
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
       bannerContainer.innerHTML = `
+        ${restDayHtml}
         <div class="quest-banner-hero">
-          <span class="quest-status-tag ${isCompleted ? 'completed' : 'in-progress'}">
-            ${isCompleted ? 'MISIÓN COMPLETADA' : 'MISIÓN EN CURSO'}
-          </span>
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+            <span class="quest-status-tag ${isCompleted ? 'completed' : (isRest ? 'normal' : 'in-progress')}">
+              ${isCompleted ? 'MISIÓN COMPLETADA' : (isRest ? 'DÍA DE RECUPERACIÓN' : 'MISIÓN EN CURSO')}
+            </span>
+            ${buff.bonusPercent > 0 ? `
+              <span class="streak-buff-badge">
+                ${buff.icon} BUFF RACHA x${streak}: +${buff.bonusPercent}% EXP
+              </span>
+            ` : ''}
+          </div>
           <h2 class="quest-main-title">Misión Diaria: Preparación para ser fuerte</h2>
           <p class="quest-subtext">El Sistema exige templanza y disciplina física constante para superar los límites.</p>
           <div class="quest-overall-progress">
@@ -283,6 +333,9 @@ class QuestController {
                 </div>
               </div>
               <div style="display: flex; gap: 4px;">
+                <button class="direct-input-btn" data-action="start-task-timer" data-task-id="${task.id}" title="Iniciar Descanso de Serie (60s)" style="color: var(--color-primary-glow);">
+                  ⏱️
+                </button>
                 <button class="direct-input-btn" data-action="edit-task" data-task-id="${task.id}" title="Ingresar valor">
                   ✏️
                 </button>
@@ -321,9 +374,14 @@ class QuestController {
       // Add "Nueva Actividad" button at bottom of list
       if (!isCompleted) {
         html += `
-          <button id="add-quest-activity-btn" class="modal-btn" style="width: 100%; margin-top: 6px; margin-bottom: 12px; background: rgba(0, 229, 255, 0.08); border: 1px dashed var(--border-cyan); color: var(--color-primary-glow); padding: 12px; font-family: var(--font-hud); font-size: 0.85rem;">
-            + AGREGAR NUEVA ACTIVIDAD / OBJETIVO
-          </button>
+          <div style="display: flex; gap: 8px; margin-top: 6px; margin-bottom: 12px;">
+            <button id="add-quest-activity-btn" class="modal-btn" style="flex: 1; background: rgba(0, 229, 255, 0.08); border: 1px dashed var(--border-cyan); color: var(--color-primary-glow); padding: 12px; font-family: var(--font-hud); font-size: 0.85rem;">
+              + AGREGAR OBJETIVO
+            </button>
+            <button onclick="window.systemTimer.start(60, 'Descanso Táctico')" class="modal-btn" style="background: rgba(0, 229, 255, 0.12); border: 1px solid var(--border-cyan); color: #fff; padding: 12px 16px; font-family: var(--font-hud); font-size: 0.85rem;" title="Lanzar cronómetro de descanso">
+              ⏱️ DESCANSO
+            </button>
+          </div>
         `;
       }
 
@@ -341,7 +399,7 @@ class QuestController {
       } else {
         claimContainer.innerHTML = `
           <button id="claim-quest-btn" class="claim-reward-btn" ${!isReady ? 'disabled' : ''}>
-            ${isReady ? '⚡ RECLAMAR RECOMPENSA DEL SISTEMA ⚡' : `🔒 OBJETIVOS PENDIENTES (${overallPct}%)`}
+            ${isReady ? `⚡ RECLAMAR RECOMPENSA (+${buff.bonusPercent > 0 ? buff.bonusPercent + '% EXP' : 'EXP'}) ⚡` : `🔒 OBJETIVOS PENDIENTES (${overallPct}%)`}
           </button>
         `;
       }
@@ -367,14 +425,23 @@ class QuestController {
     window.systemUI.showRewardModal({
       expGained: result.expGained,
       statPoints: result.statPointsGained,
-      lootBoxes: result.lootBoxesGained
+      lootBoxes: result.lootBoxesGained,
+      streakBuff: result.streakBuff
     });
+
+    if (result.overloadResult) {
+      setTimeout(() => {
+        window.systemAudio.playLevelUp();
+        window.systemUI.showToast(`[SOBRECARGA PROGRESIVA]: ¡Racha de ${result.overloadResult.streak} días! El Sistema ha aumentado tus metas en +${result.overloadResult.increment} unidades.`, 'quest');
+      }, 2500);
+    }
 
     this.renderDailyQuest();
     window.systemUI.updateHeader();
     window.systemUI.updateStatusScreen();
     window.systemUI.updateInventoryScreen();
     window.systemUI.updateLogsScreen();
+    window.systemUI.renderSettingsScreen();
   }
 
   /* ==========================================================================

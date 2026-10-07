@@ -1,15 +1,17 @@
 {
-  "version": "1.1.6",
-  "versionCode": 7,
+  "version": "1.2.0",
+  "versionCode": 8,
   "releaseDate": "2026-10-07",
-  "apkName": "TrainIA-v1.1.6.apk",
-  "downloadUrl": "https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/TrainIA-v1.1.6.apk",
+  "apkName": "TrainIA-v1.2.0.apk",
+  "downloadUrl": "https://raw.githubusercontent.com/EdgarGoPr/TrainIA/main/TrainIA-v1.2.0.apk",
   "webUrl": "https://edgargopr.github.io/TrainIA/",
   "changelog": [
-    "Versión v1.1.6 (SemVer Patch Release):",
-    "Corrección de descargas duplicadas mediante debounce en Java (MainActivity) y bloqueo de redirecciones en WebView",
-    "Optimización de URL directa y controlador con protección contra clics simultáneos",
-    "El archivo instalador APK mantiene el versionado explícito en su nombre (TrainIA-v1.1.6.apk)",
-    "Integración nativa del sistema de notificaciones y permisos en Android"
+    "Versión v1.2.0 (SemVer Feature Release):",
+    "⏱️ Cronómetro de descanso táctico entre series con presets rápidos (30s, 60s, 90s, 120s), widget flotante y alarma de vibración",
+    "📈 Sobrecarga Progresiva automática por racha de días consecutivos y botón de aplicación manual",
+    "🛌 Días de descanso fijos semanales y botón para declarar descanso hoy (protección de racha y zona de castigo)",
+    "🔥 Multiplicadores de EXP por racha de días (+10% a +100% EXP)",
+    "💾 Módulo de Exportación e Importación de Respaldo de Progreso (JSON / Portapapeles)",
+    "📦 Instalador nativo versionado TrainIA-v1.2.0.apk con protección contra descargas duplicadas"
   ]
 }

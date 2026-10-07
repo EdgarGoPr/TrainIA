@@ -579,8 +579,287 @@ class SystemUIController {
       this.bindBulkActivityEvents();
     }
 
+    this.renderOverloadSettings();
+    this.renderRestDaysSettings();
+    this.renderBackupSettings();
+
     if (window.systemNotifications) {
       window.systemNotifications.renderNotificationSettings();
+    }
+  }
+
+  renderOverloadSettings() {
+    const container = document.getElementById('overload-config-container');
+    if (!container) return;
+    const overload = window.systemState.state.settings.progressiveOverload || {
+      enabled: true,
+      intervalDays: 7,
+      incrementAmount: 5,
+      lastAppliedStreak: 0
+    };
+
+    container.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(5,12,24,0.6); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-cyan);">
+          <div>
+            <div style="font-family: var(--font-hud); font-size: 0.86rem; color: #fff;">Auto-Sobrecarga por Racha</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+              Escala automáticamente las metas al mantener la racha de días.
+            </div>
+          </div>
+          <input type="checkbox" id="overload-enabled-cb" ${overload.enabled ? 'checked' : ''} style="width: 20px; height: 20px; accent-color: var(--color-primary); cursor: pointer;" onchange="window.systemUI.updateOverloadSetting('enabled', this.checked)">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Cada cuántos días de racha:</label>
+            <select id="overload-interval-select" onchange="window.systemUI.updateOverloadSetting('intervalDays', parseInt(this.value))" style="width: 100%; margin-top: 4px; padding: 6px 8px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-mono); font-size: 0.82rem;">
+              <option value="3" ${overload.intervalDays === 3 ? 'selected' : ''}>Cada 3 días</option>
+              <option value="5" ${overload.intervalDays === 5 ? 'selected' : ''}>Cada 5 días</option>
+              <option value="7" ${overload.intervalDays === 7 ? 'selected' : ''}>Cada 7 días (1 sem)</option>
+              <option value="10" ${overload.intervalDays === 10 ? 'selected' : ''}>Cada 10 días</option>
+              <option value="14" ${overload.intervalDays === 14 ? 'selected' : ''}>Cada 14 días (2 sem)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">Cantidad a aumentar (+):</label>
+            <select id="overload-amount-select" onchange="window.systemUI.updateOverloadSetting('incrementAmount', parseInt(this.value))" style="width: 100%; margin-top: 4px; padding: 6px 8px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-mono); font-size: 0.82rem;">
+              <option value="1" ${overload.incrementAmount === 1 ? 'selected' : ''}>+1 rep / 0.1 km / 1 min</option>
+              <option value="2" ${overload.incrementAmount === 2 ? 'selected' : ''}>+2 reps / 0.2 km / 2 min</option>
+              <option value="5" ${overload.incrementAmount === 5 ? 'selected' : ''}>+5 reps / 0.5 km / 5 min</option>
+              <option value="10" ${overload.incrementAmount === 10 ? 'selected' : ''}>+10 reps / 1.0 km / 10 min</option>
+              <option value="15" ${overload.incrementAmount === 15 ? 'selected' : ''}>+15 reps / 1.5 km / 15 min</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="window.systemUI.triggerManualOverload()" class="modal-btn" style="padding: 10px; font-size: 0.82rem; background: rgba(0, 255, 136, 0.12); border-color: rgba(0, 255, 136, 0.4); color: #00ff88;">
+          ⚡ APLICAR SOBRECARGA MANUAL AHORA
+        </button>
+      </div>
+    `;
+  }
+
+  updateOverloadSetting(key, val) {
+    if (!window.systemState.state.settings.progressiveOverload) {
+      window.systemState.state.settings.progressiveOverload = { enabled: true, intervalDays: 7, incrementAmount: 5, lastAppliedStreak: 0 };
+    }
+    window.systemState.state.settings.progressiveOverload[key] = val;
+    window.systemState.save();
+    window.systemAudio.playClick();
+    this.showToast('[SISTEMA]: Parámetros de Sobrecarga Progresiva actualizados.', 'normal');
+  }
+
+  triggerManualOverload() {
+    const amount = window.systemState.state.settings.progressiveOverload?.incrementAmount || 5;
+    const confirmOverload = confirm(`¿Deseas aplicar una sobrecarga manual de +${amount} unidades a todas las metas activas?`);
+    if (confirmOverload) {
+      window.systemAudio.playLevelUp();
+      const modified = window.systemState.applyProgressiveOverload(amount);
+      this.showToast(`[SISTEMA]: Sobrecarga manual aplicada (+${amount} a todas las metas).`, 'success');
+      window.questController.renderDailyQuest();
+      this.renderSettingsScreen();
+    }
+  }
+
+  renderRestDaysSettings() {
+    const container = document.getElementById('rest-days-config-container');
+    if (!container) return;
+    const rest = window.systemState.state.settings.restDays || { weeklyDays: [], activeRestDates: [] };
+    const isTodayRest = window.systemState.isTodayRestDay();
+    const days = [
+      { idx: 1, label: 'Lun' },
+      { idx: 2, label: 'Mar' },
+      { idx: 3, label: 'Mié' },
+      { idx: 4, label: 'Jue' },
+      { idx: 5, label: 'Vie' },
+      { idx: 6, label: 'Sáb' },
+      { idx: 0, label: 'Dom' }
+    ];
+
+    container.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div>
+          <label style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 6px; display: block;">
+            Días fijos semanales de recuperación (se guardan automáticamente):
+          </label>
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">
+            ${days.map(d => {
+              const isChecked = (rest.weeklyDays || []).includes(d.idx);
+              return `
+                <button type="button" onclick="window.systemUI.toggleWeeklyRestDay(${d.idx})" style="
+                  padding: 8px 2px;
+                  font-family: var(--font-hud);
+                  font-size: 0.72rem;
+                  font-weight: 700;
+                  border-radius: 4px;
+                  background: ${isChecked ? 'rgba(255, 170, 0, 0.25)' : 'rgba(0,0,0,0.5)'};
+                  border: 1px solid ${isChecked ? '#ffaa00' : 'rgba(255, 255, 255, 0.15)'};
+                  color: ${isChecked ? '#ffaa00' : 'var(--text-muted)'};
+                  cursor: pointer;
+                  transition: all 0.15s ease;
+                ">
+                  ${d.label}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(5,12,24,0.6); padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-cyan);">
+          <div>
+            <div style="font-family: var(--font-hud); font-size: 0.85rem; color: #fff;">
+              Estado de Hoy: <span style="color: ${isTodayRest ? '#ffaa00' : '#00ff88'};">${isTodayRest ? '🛌 DESCANSO' : '⚔️ ENTRENAMIENTO'}</span>
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+              ${isTodayRest ? 'Tu racha no se reiniciará a medianoche.' : 'Completa la misión antes de medianoche.'}
+            </div>
+          </div>
+          <button onclick="window.systemUI.toggleTodayRestSetting()" class="modal-btn" style="padding: 6px 12px; font-size: 0.78rem; border-color: #ffaa00; color: #ffaa00; white-space: nowrap;">
+            ${isTodayRest ? 'Desactivar Descanso' : 'Marcar Descanso Hoy'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  toggleWeeklyRestDay(dayIndex) {
+    const rest = window.systemState.state.settings.restDays || { weeklyDays: [], activeRestDates: [] };
+    const current = (rest.weeklyDays || []).includes(dayIndex);
+    window.systemAudio.playClick();
+    window.systemState.setWeeklyRestDay(dayIndex, !current);
+    this.showToast(!current ? '[SISTEMA]: Día semanal de descanso añadido.' : '[SISTEMA]: Día semanal de descanso retirado.', 'normal');
+    this.renderRestDaysSettings();
+    window.questController.renderDailyQuest();
+  }
+
+  toggleTodayRestSetting() {
+    window.systemAudio.playClick();
+    const isRest = window.systemState.toggleRestDayToday();
+    this.showToast(isRest ? '[SISTEMA]: Hoy declarado Día de Descanso. Racha protegida.' : '[SISTEMA]: Hoy reactivado como día de entrenamiento.', 'normal');
+    this.renderRestDaysSettings();
+    window.questController.renderDailyQuest();
+  }
+
+  renderBackupSettings() {
+    const container = document.getElementById('backup-config-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button onclick="window.systemUI.exportBackupFile()" class="modal-btn" style="padding: 12px 8px; font-size: 0.82rem; background: rgba(0, 229, 255, 0.12); border-color: var(--border-cyan); color: var(--color-primary-glow);">
+            📤 EXPORTAR DATOS
+          </button>
+          <button onclick="window.systemUI.showImportBackupModal()" class="modal-btn" style="padding: 12px 8px; font-size: 0.82rem; background: rgba(255, 215, 0, 0.1); border-color: rgba(255, 215, 0, 0.4); color: var(--color-gold);">
+            📥 IMPORTAR DATOS
+          </button>
+        </div>
+        <button onclick="window.systemUI.copyBackupToClipboard()" class="modal-btn" style="padding: 8px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.15); color: #aaa;">
+          📋 Copiar Respaldo al Portapapeles
+        </button>
+      </div>
+    `;
+  }
+
+  exportBackupFile() {
+    window.systemAudio.playItemUse();
+    const jsonStr = window.systemState.exportBackupData();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dateStr = window.systemState.getTodayDateString();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `TrainIA_Hunter_Backup_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
+    this.showToast('[SISTEMA]: Archivo de respaldo descargado con éxito.', 'success');
+  }
+
+  copyBackupToClipboard() {
+    const jsonStr = window.systemState.exportBackupData();
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      window.systemAudio.playItemUse();
+      this.showToast('[SISTEMA]: Respaldo JSON copiado al portapapeles.', 'success');
+    }).catch(() => {
+      prompt('Copia este código de respaldo:', jsonStr);
+    });
+  }
+
+  showImportBackupModal() {
+    const modal = document.getElementById('generic-system-modal');
+    const titleEl = document.getElementById('generic-modal-title');
+    const bodyEl = document.getElementById('generic-modal-body');
+    if (!modal || !bodyEl) return;
+
+    window.systemAudio.playClick();
+    if (titleEl) titleEl.textContent = '[ RESTAURACIÓN DE DATOS DEL CAZADOR ]';
+
+    bodyEl.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 12px; padding: 6px 0;">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">
+          Selecciona tu archivo de respaldo <code>.json</code> o pega el contenido JSON abajo:
+        </p>
+
+        <div>
+          <label style="font-size: 0.75rem; color: #fff;">Cargar desde archivo:</label>
+          <input type="file" id="backup-file-input" accept=".json" style="width: 100%; margin-top: 4px; padding: 8px; background: rgba(0,0,0,0.6); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-size: 0.8rem;" onchange="window.systemUI.handleBackupFileUpload(event)">
+        </div>
+
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.75rem;">— Ó —</div>
+
+        <div>
+          <label style="font-size: 0.75rem; color: #fff;">Pegar código JSON:</label>
+          <textarea id="backup-json-textarea" placeholder="Pega aquí el contenido de tu respaldo JSON..." style="width: 100%; height: 90px; margin-top: 4px; padding: 8px; background: rgba(0,0,0,0.8); border: 1px solid var(--border-cyan); color: #fff; border-radius: 4px; font-family: var(--font-mono); font-size: 0.75rem; resize: none;"></textarea>
+        </div>
+
+        <button onclick="window.systemUI.handleBackupTextImport()" class="claim-reward-btn" style="padding: 12px; font-size: 0.88rem; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d;">
+          ⚡ RESTAURAR PROGRESO AHORA
+        </button>
+      </div>
+    `;
+
+    modal.classList.add('active');
+  }
+
+  handleBackupFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result;
+      const res = window.systemState.importBackupData(content);
+      if (res.success) {
+        window.systemAudio.playLevelUp();
+        this.showToast(`[SISTEMA]: ${res.message}`, 'success');
+        this.refreshAll();
+        document.getElementById('generic-system-modal')?.classList.remove('active');
+      } else {
+        this.showToast(`[ERROR]: ${res.error}`, 'warning');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  handleBackupTextImport() {
+    const val = document.getElementById('backup-json-textarea')?.value;
+    if (!val || !val.trim()) {
+      this.showToast('[ERROR]: Por favor pega el código JSON de tu respaldo.', 'warning');
+      return;
+    }
+    const res = window.systemState.importBackupData(val.trim());
+    if (res.success) {
+      window.systemAudio.playLevelUp();
+      this.showToast(`[SISTEMA]: ${res.message}`, 'success');
+      this.refreshAll();
+      document.getElementById('generic-system-modal')?.classList.remove('active');
+    } else {
+      this.showToast(`[ERROR]: ${res.error}`, 'warning');
     }
   }
 
