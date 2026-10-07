@@ -131,7 +131,7 @@ class SystemStateManager {
       meta: {
         createdDate: today,
         lastActiveDate: today,
-        version: '1.1.3'
+        version: '1.1.4'
       }
     };
   }
@@ -185,7 +185,7 @@ class SystemStateManager {
           ...(saved.settings?.notifications || {})
         }
       },
-      meta: { ...base.meta, ...(saved.meta || {}), version: '1.1.3' }
+      meta: { ...base.meta, ...(saved.meta || {}), version: '1.1.4' }
     };
     return merged;
   }

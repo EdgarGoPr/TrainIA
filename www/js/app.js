@@ -86,7 +86,50 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 9. Enhanced System Update Handler (GitHub Remote & PWA Cache Synchronizer)
-  const CURRENT_VERSION = '1.1.3';
+  const CURRENT_VERSION = '1.1.4';
+
+  window.downloadAppUpdate = function(url) {
+    if (!url) url = 'https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=' + CURRENT_VERSION;
+    
+    window.systemAudio.playQuestComplete();
+    window.systemUI.showToast('[SISTEMA]: Iniciando descarga del instalador APK en el navegador...', 'quest');
+
+    try {
+      // 1. If running under native Capacitor, try opening system browser or location
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+        window.Capacitor.Plugins.Browser.open({ url: url }).catch(() => {
+          window.open(url, '_system');
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('Capacitor browser open failed:', e);
+    }
+
+    // 2. Standard and fallback triggers
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_system';
+      a.download = 'TrainIA.apk';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 500);
+    } catch (e) {
+      window.location.href = url;
+    }
+  };
+
+  window.copyUpdateLink = function(url) {
+    if (!url) url = 'https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=' + CURRENT_VERSION;
+    navigator.clipboard.writeText(url).then(() => {
+      window.systemAudio.playItemUse();
+      window.systemUI.showToast('[SISTEMA]: Enlace directo copiado al portapapeles.', 'normal');
+    }).catch(() => {
+      prompt('Copia este enlace directo para descargar el APK:', url);
+    });
+  };
+
   const updateAppBtn = document.getElementById('update-system-app-btn');
   if (updateAppBtn) {
     updateAppBtn.addEventListener('click', async () => {
@@ -132,12 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (titleEl) titleEl.textContent = `[ ESTADO DE ACTUALIZACIÓN DEL SISTEMA ]`;
 
         const changelogList = remoteData?.changelog || [
-          'Versión oficial v1.1.3 de TrainIA',
+          'Versión oficial v1.1.4 de TrainIA',
+          'Integración de DownloadListener nativo en MainActivity para descargas directas',
           'Puente nativo Java de notificaciones para Android integrado',
           'Gestión de actividades en lote en Ajustes (Activar, Desactivar o Borrar)',
-          'Misión Diaria protegida contra borrado accidental de ejercicios',
-          'Sincronización forzada y descarga directa de APK v1.1.3'
+          'Misión Diaria protegida contra borrado accidental de ejercicios'
         ];
+
+        const targetDownloadUrl = remoteData?.downloadUrl || `https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=${remoteVer}`;
 
         bodyEl.innerHTML = `
           <div style="padding: 6px 0;">
@@ -147,29 +192,37 @@ document.addEventListener('DOMContentLoaded', () => {
             </h3>
             <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; font-family: var(--font-mono); font-size: 0.75rem;">
               <span style="background: rgba(0,229,255,0.1); border: 1px solid var(--border-cyan); padding: 2px 8px; border-radius: 4px; color: #fff;">
-                Local: v${CURRENT_VERSION}
+                Instalada: v${CURRENT_VERSION}
               </span>
               <span style="background: rgba(0,255,136,0.1); border: 1px solid #00ff88; padding: 2px 8px; border-radius: 4px; color: #00ff88;">
-                GitHub: v${remoteVer}
+                Disponible: v${remoteVer}
               </span>
             </div>
 
-            <div style="background: rgba(0, 229, 255, 0.08); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 14px; font-size: 0.8rem;">
-              <strong style="color: #fff; font-family: var(--font-hud);">◈ Novedades y Mejoras del Sistema:</strong>
+            <div style="background: rgba(0, 229, 255, 0.08); border: 1px solid var(--border-cyan); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 12px; font-size: 0.8rem;">
+              <strong style="color: #fff; font-family: var(--font-hud);">◈ Novedades del Sistema:</strong>
               <ul style="margin-top: 6px; padding-left: 18px; color: var(--text-muted); line-height: 1.4;">
                 ${changelogList.map(c => `<li>${c}</li>`).join('')}
               </ul>
             </div>
 
-            <p style="font-size: 0.78rem; color: #fff; margin-bottom: 12px; text-align: center;">
-              ¿Cómo deseas aplicar la actualización en tu dispositivo?
-            </p>
+            <div style="background: rgba(255, 215, 0, 0.08); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 12px; font-size: 0.76rem; color: #fff;">
+              <strong style="color: var(--color-gold);">ℹ️ Pasos para actualizar en tu móvil:</strong>
+              <ol style="margin-top: 4px; padding-left: 18px; color: #ddd; line-height: 1.35;">
+                <li>Toca el botón <strong>"DESCARGAR APK"</strong> abajo.</li>
+                <li>Tu celular descargará el archivo <code>TrainIA.apk</code>.</li>
+                <li>Toca la notificación de descarga o abre tu carpeta <strong>Descargas</strong> para instalar y sobrescribir con la nueva versión (sin perder tu progreso).</li>
+              </ol>
+            </div>
 
             <div style="display: flex; flex-direction: column; gap: 8px;">
-              <a href="https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=1.1.3" download="TrainIA.apk" class="claim-reward-btn" style="text-decoration: none; text-align: center; font-size: 0.88rem; padding: 12px; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: var(--glow-cyan);">
-                📥 DESCARGAR / INSTALAR APK v${remoteVer} (ANDROID)
-              </a>
-              <button class="modal-btn" onclick="if('caches' in window){caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>{window.location.reload(true);})}else{window.location.reload(true);}" style="padding: 10px; font-size: 0.8rem; background: rgba(0, 229, 255, 0.15); border-color: var(--border-cyan); color: #fff;">
+              <button onclick="window.downloadAppUpdate('${targetDownloadUrl}')" class="claim-reward-btn" style="text-align: center; font-size: 0.9rem; padding: 12px; background: linear-gradient(135deg, #00e5ff, #00b4d8); color: #05070d; box-shadow: var(--glow-cyan); width: 100%; border: none; cursor: pointer; font-family: var(--font-hud);">
+                📥 DESCARGAR APK v${remoteVer} (ANDROID)
+              </button>
+              <button onclick="window.copyUpdateLink('${targetDownloadUrl}')" class="modal-btn" style="padding: 8px; font-size: 0.75rem; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.2); color: #ccc;">
+                📋 Copiar enlace directo de descarga
+              </button>
+              <button class="modal-btn" onclick="if('caches' in window){caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>{window.location.reload(true);})}else{window.location.reload(true);}" style="padding: 9px; font-size: 0.78rem; background: rgba(0, 229, 255, 0.12); border-color: var(--border-cyan); color: #fff;">
                 🔄 LIMPIAR CACHÉ Y RECARGAR PWA
               </button>
             </div>

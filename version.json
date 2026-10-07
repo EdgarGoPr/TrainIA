@@ -1,14 +1,14 @@
 {
-  "version": "1.1.3",
-  "versionCode": 4,
+  "version": "1.1.4",
+  "versionCode": 5,
   "releaseDate": "2026-10-07",
-  "downloadUrl": "https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=1.1.3",
+  "downloadUrl": "https://github.com/EdgarGoPr/TrainIA/raw/main/TrainIA.apk?v=1.1.4",
   "webUrl": "https://edgargopr.github.io/TrainIA/",
   "changelog": [
-    "Versión v1.1.3 (SemVer Patch Release):",
-    "Integración completa del puente nativo Java de notificaciones (LocalNotificationsPlugin) en MainActivity",
-    "Configuración del canal de alta prioridad 'solo_system_channel' con vibración y visibilidad en pantalla de bloqueo",
-    "Manejador automático de permisos POST_NOTIFICATIONS de Android 13+",
-    "Sincronización total de empaquetado de assets y compilador APK v1.1.3"
+    "Versión v1.1.4 (SemVer Patch Release):",
+    "Integración de DownloadListener nativo en MainActivity para descargas directas de APK en Android",
+    "Manejador inteligente de descarga de actualización (Browser Intent + descarga directa)",
+    "Puente nativo Java de notificaciones (LocalNotificationsPlugin) en MainActivity",
+    "Canal de alta prioridad 'solo_system_channel' con vibración y visibilidad en pantalla bloqueada"
   ]
 }

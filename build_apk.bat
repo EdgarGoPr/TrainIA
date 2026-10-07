@@ -37,5 +37,5 @@ copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "TrainIA.apk"
 copy /Y "android\app\build\outputs\apk\debug\app-debug.apk" "www\TrainIA.apk"
 
 echo ========================================================
-echo SUCCESS: TrainIA.apk v1.1.3 built and updated in root!
+echo SUCCESS: TrainIA.apk v1.1.4 built and updated in root!
 echo ========================================================
